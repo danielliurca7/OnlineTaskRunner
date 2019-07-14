@@ -4,24 +4,32 @@
     <div class="login-form">
       <b-form @submit="onSubmit">
         <b-form-group>
-          <b-form-input v-model="username" type="text" placeholder="Username" required/>
+          <b-form-input
+            v-model="username"
+            type="text"
+            placeholder="Username"
+            required
+          />
         </b-form-group>
 
-        <b-form-group :invalid-feedback="invalidFeedback">
-          <b-form-input v-model="password" type="password" placeholder="Password" required/>
+        <b-form-group>
+          <b-form-input
+            v-model="password"
+            type="password"
+            placeholder="Password"
+            required
+          />
         </b-form-group>
 
         <div class="text-center">
           <b-button type="submit" variant="primary" block>Sign In</b-button>
         </div>
-        
+
         <div class="float-left mt-3">
           <b-form-checkbox
-            id="checkbox-1"
-            v-model="status"
-            name="checkbox-1"
-            value="accepted"
-            unchecked-value="not_accepted"
+            v-model="remember"
+            value="true"
+            unchecked-value="false"
           >
             Remember me
           </b-form-checkbox>
@@ -39,6 +47,23 @@ export default {
   name: "login",
   components: {
     Navbar
+  },
+  data() {
+    return {
+      username: "",
+      password: "",
+      remember: false
+    };
+  },
+  methods: {
+    onSubmit: function(e) {
+      e.preventDefault();
+
+      // Authentication with cs.curs api
+      // Check credentials
+
+      this.$router.push("dashboard");
+    }
   }
 };
 </script>
