@@ -42,6 +42,7 @@
 <script>
 // @ is an alias to /src
 import Navbar from "@/components/Navbar.vue";
+import { mapActions } from "vuex";
 
 export default {
   name: "login",
@@ -56,11 +57,15 @@ export default {
     };
   },
   methods: {
+    ...mapActions(["setUsername"]),
+
     onSubmit: function(e) {
       e.preventDefault();
 
       // Authentication with cs.curs api
       // Check credentials
+
+      this.setUsername(this.username);
 
       this.$router.push("dashboard");
     }

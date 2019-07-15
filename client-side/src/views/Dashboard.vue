@@ -2,8 +2,11 @@
   <div class="dashboard">
     <AuthNavbar />
     <ul class="list-group mt-3 float-left w-50 ml-3">
-      <li class="list-group-item m-1 btn btn-secondary" v-for="subject in subjects" :key="subject.name">
-        <router-link :to="{ name: 'subject', params: { subject: subject.name }}">{{ subject.name }}</router-link>
+      <li class="list-group-item  m-1 btn"
+          v-for="subject in getSubjects"
+          :key="subject.name"
+          @click="setTab(subject.name)">
+            {{ subject.name }}
       </li>
     </ul>
   </div>
@@ -11,30 +14,39 @@
 
 <script>
 import AuthNavbar from "@/components/AuthNavbar.vue";
+import { mapGetters, mapActions } from "vuex";
 
 export default {
   name: "dashboard",
   components: {
     AuthNavbar
   },
-  data() {
-    return {
-      subjects: [
-        { name: "PC" },
-        { name: "APD" },
-        { name: "PA" },
-        { name: "EGC" }
-      ]
-    };
+  computed: mapGetters(["getSubjects", "getTabs"]),
+  methods: {
+    ...mapActions(["openTab"]),
+    setTab: function(name) {
+      var tabs = JSON.parse(JSON.stringify(this.getTabs));
+
+      if (tabs.filter(tab => tab.name === name).length === 0) {
+        this.openTab(name);
+      }
+
+      this.$router.push("/subject/" + name);
+    }
   }
 };
 </script>
 
 <style scoped>
-a {
+li {
   color: orange;
   display: block;
   text-decoration: none;
   cursor: pointer;
+}
+
+li:hover {
+  color: orange;
+  background-color: #ddd;
 }
 </style>
