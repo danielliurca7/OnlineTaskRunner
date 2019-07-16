@@ -10,15 +10,18 @@ export default new Vuex.Store({
 
     // should pull from server
     subjects: [
-      { name: "PC" },
-      { name: "APD" },
-      { name: "PA" },
-      { name: "EGC" }
+      { name: "Programarea Calculatoarelor" },
+      { name: "Algoritmi Paraleli si Distribuiti" },
+      { name: "Proiectarea Algoritmilor" },
+      { name: "Paradigme de Programare" },
+      { name: "Protocoale de Comunicatie" }
     ]
   },
   mutations: {
     setUsername: (state, username) => (state.username = username),
-    openTab: (state, tabName) => state.open_tabs.push({name: tabName})
+    openTab: (state, tabName) => state.open_tabs.push({ name: tabName }),
+    closeTab: (state, tabName) =>
+      (state.open_tabs = state.open_tabs.filter(el => el.name !== tabName))
   },
   actions: {
     setUsername({ commit }, username) {
@@ -26,6 +29,9 @@ export default new Vuex.Store({
     },
     openTab({ commit }, tabName) {
       commit("openTab", tabName);
+    },
+    closeTab({ commit }, tabName) {
+      commit("closeTab", tabName);
     }
   },
   getters: {

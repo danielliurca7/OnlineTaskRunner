@@ -2,11 +2,13 @@
   <div class="dashboard">
     <AuthNavbar />
     <ul class="list-group mt-3 float-left w-50 ml-3">
-      <li class="list-group-item  m-1 btn"
-          v-for="subject in getSubjects"
-          :key="subject.name"
-          @click="setTab(subject.name)">
-            {{ subject.name }}
+      <li
+        class="list-group-item  m-1 btn"
+        v-for="subject in getSubjects"
+        :key="subject.name"
+        @click="setTab(subject.name)"
+      >
+        {{ subject.name }}
       </li>
     </ul>
   </div>
@@ -27,10 +29,12 @@ export default {
     setTab: function(name) {
       var tabs = JSON.parse(JSON.stringify(this.getTabs));
 
+      // if tab is not already opened, open it
       if (tabs.filter(tab => tab.name === name).length === 0) {
         this.openTab(name);
       }
 
+      // go to the clicked tab
       this.$router.push("/subject/" + name);
     }
   }

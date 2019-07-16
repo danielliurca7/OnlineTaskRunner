@@ -37,6 +37,11 @@ export default new Router({
       path: "/subject/:subject",
       name: "subject",
       component: () => import("./views/Subject.vue")
+    },
+    {
+      path: "/profile",
+      name: "profile",
+      component: () => import("./views/Profile.vue")
     }
   ]
 });

@@ -2,7 +2,7 @@
   <div class="login">
     <Navbar />
     <div class="login-form">
-      <b-form @submit="onSubmit">
+      <b-form @submit.prevent="onSubmit">
         <b-form-group>
           <b-form-input
             v-model="username"
@@ -58,16 +58,19 @@ export default {
   },
   methods: {
     ...mapActions(["setUsername"]),
-
-    onSubmit: function(e) {
-      e.preventDefault();
-
-      // Authentication with cs.curs api
-      // Check credentials
+    onSubmit: function() {
+      // authentication with cs.curs api
+      // check credentials
 
       this.setUsername(this.username);
 
-      this.$router.push("dashboard");
+      // if the "Remember me" box is active, create a new cookie for username
+      if (this.remember) {
+        this.$cookie.set("username", this.username, 1);
+      }
+
+      // go to dashboard
+      this.$router.push("/dashboard");
     }
   }
 };

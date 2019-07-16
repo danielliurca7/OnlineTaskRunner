@@ -6,13 +6,18 @@
 </template>
 
 <script>
-// @ is an alias to /src
 import Navbar from "@/components/Navbar.vue";
 
 export default {
   name: "home",
   components: {
     Navbar
+  },
+  created() {
+    // if there is a cookie for username, jump to dashboard
+    if (this.$cookie.get("username") !== undefined) {
+      this.$router.push("/dashboard");
+    }
   }
 };
 </script>

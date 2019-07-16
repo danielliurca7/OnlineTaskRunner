@@ -1,7 +1,7 @@
 <template>
-  <div class="subject">
+  <div class="profile">
     <AuthNavbar />
-    {{ $route.params.subject }}
+    <h1>This is the profile and preferences page</h1>
   </div>
 </template>
 
@@ -9,7 +9,7 @@
 import AuthNavbar from "@/components/AuthNavbar.vue";
 
 export default {
-  name: "subject",
+  name: "profile",
   components: {
     AuthNavbar
   }
