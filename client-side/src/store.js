@@ -10,7 +10,43 @@ export default new Vuex.Store({
 
     // should pull from server
     subjects: [
-      { name: "Programarea Calculatoarelor" },
+      {
+        name: "Programarea Calculatoarelor",
+        labs: [
+          {
+            name: "Laboratorul 1",
+            support: "Acesta este laboratorul 1",
+            given_code: "int main() {}",
+            tests: [
+              { name: "Test 1", value: "Passed" },
+              { name: "Test 2", value: "Failed" },
+              { name: "Test 3", value: "Passed" }
+            ]
+          },
+          {
+            name: "Laboratorul 2",
+            support: "Acesta este laboratorul 2",
+            given_code: "void main() {}",
+            tests: [
+              { name: "Test 1", value: "Passed" },
+              { name: "Test 2", value: "Passed" },
+              { name: "Test 3", value: "Passed" }
+            ]
+          }
+        ],
+        homeworks: [
+          {
+            name: "Tema 1",
+            support: "Aceasta este tema 1",
+            given_code: "#include <iostream>",
+            tests: [
+              { name: "Test 1", value: "Passed" },
+              { name: "Test 2", value: "Passed" },
+              { name: "Test 3", value: "Passed" }
+            ]
+          }
+        ]
+      },
       { name: "Algoritmi Paraleli si Distribuiti" },
       { name: "Proiectarea Algoritmilor" },
       { name: "Paradigme de Programare" },
@@ -37,6 +73,10 @@ export default new Vuex.Store({
   getters: {
     getUsername: state => state.username,
     getSubjects: state => state.subjects,
-    getTabs: state => state.open_tabs
+    getTabs: state => state.open_tabs,
+    getLabs: state => name =>
+      state.subjects.find(subject => subject.name === name).labs,
+    getHomeworks: state => name =>
+      state.subjects.find(subject => subject.name === name).homeworks
   }
 });
