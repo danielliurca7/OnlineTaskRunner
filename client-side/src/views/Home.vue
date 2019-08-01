@@ -15,7 +15,10 @@ export default {
   },
   created() {
     // if there is a cookie for username, jump to dashboard
-    if (this.$cookie.get("username") !== undefined) {
+    if (
+      this.$cookie.get("username") !== undefined &&
+      this.$cookie.get("username") !== null
+    ) {
       this.$router.push("/dashboard");
     }
   }

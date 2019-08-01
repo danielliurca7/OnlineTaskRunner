@@ -34,7 +34,7 @@ export default new Router({
       component: () => import("./views/Dashboard.vue")
     },
     {
-      path: "/subject/:subject",
+      path: "/subject/:name",
       name: "subject",
       component: () => import("./views/Subject.vue")
     },
@@ -42,6 +42,16 @@ export default new Router({
       path: "/profile",
       name: "profile",
       component: () => import("./views/Profile.vue")
+    },
+    {
+      path: "/lab/:name",
+      name: "lab",
+      component: () => import("./views/Lab.vue")
+    },
+    {
+      path: "/homework/:name",
+      name: "homework",
+      component: () => import("./views/Homework.vue")
     }
   ]
 });

@@ -9,7 +9,7 @@
             class="ml-2"
             v-for="tab in getTabs"
             :key="tab.name"
-            :to="{ name: 'subject', params: { subject: tab.name } }"
+            :to="{ name: 'subject', params: { name: tab.name } }"
           >
             <span> {{ tab.name }} </span>
             <b-button
@@ -39,7 +39,7 @@
               class="ml-2"
               v-for="tab in getTabs"
               :key="tab.name"
-              :to="{ name: 'subject', params: { subject: tab.name } }"
+              :to="{ name: 'subject', params: { name: tab.name } }"
             >
               <span> {{ tab.name }} </span>
               <b-button
@@ -80,7 +80,7 @@ export default {
       // else if the current tab has the name tabName
       if (tabs.length === 0) {
         this.$router.push("/dashboard");
-      } else if (this.$route.params.subject === tabName) {
+      } else if (this.$route.params.name === tabName) {
         this.$router.push("/subject/" + tabs.pop().name);
       }
     }
@@ -90,7 +90,10 @@ export default {
   },
   mounted() {
     // if the username cookie is active, load it
-    if (this.$cookie.get("username") !== undefined) {
+    if (
+      this.$cookie.get("username") !== undefined &&
+      this.$cookie.get("username") !== null
+    ) {
       this.setUsername(this.$cookie.get("username"));
     }
   }

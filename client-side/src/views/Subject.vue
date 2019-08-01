@@ -3,8 +3,12 @@
     <AuthNavbar />
 
     <b-button-group class="m-3">
-      <b-button @click="labs = !labs" variant="success">Labs</b-button>
-      <b-button @click="labs = !labs" variant="primary">Homeworks</b-button>
+      <b-button @click="labs = labs ? labs : !labs" variant="success">
+        Labs
+      </b-button>
+      <b-button @click="labs = !labs ? labs : !labs" variant="primary">
+        Homeworks
+      </b-button>
     </b-button-group>
 
     <h1 class="m-2">{{ labs ? "Laboratoare" : "Teme" }}</h1>
@@ -12,8 +16,9 @@
     <ul v-if="labs" class="list-group mt-3 float-left w-50 ml-3">
       <li
         class="list-group-item m-1"
-        v-for="lab in getLabs($route.params.subject)"
+        v-for="lab in getLabs($route.params.name)"
         :key="lab.name"
+        @click="openLab(lab.name)"
       >
         {{ lab.name }}
       </li>
@@ -21,8 +26,9 @@
     <ul v-if="!labs" class="list-group mt-3 float-left w-50 ml-3">
       <li
         class="list-group-item m-1"
-        v-for="homework in getHomeworks($route.params.subject)"
+        v-for="homework in getHomeworks($route.params.name)"
         :key="homework.name"
+        @click="openHomework(homework.name)"
       >
         {{ homework.name }}
       </li>
@@ -46,6 +52,14 @@ export default {
   },
   computed: {
     ...mapGetters(["getLabs", "getHomeworks"])
+  },
+  methods: {
+    openLab(name) {
+      this.$router.push("/lab/" + name);
+    },
+    openHomework(name) {
+      this.$router.push("/homework/" + name);
+    }
   }
 };
 </script>
