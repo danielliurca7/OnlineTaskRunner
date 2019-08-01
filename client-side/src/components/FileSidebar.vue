@@ -1,7 +1,7 @@
 <template>
   <div class="file-sidebar">
     <b-tree-view
-      class="border w-25 mt-3"
+      class="w-25 float-left"
       :data="treeData"
       :contextMenuItems="menuItems"
     >
@@ -11,14 +11,33 @@
 
 <script>
 export default {
+  name: "FileSidebar",
   data() {
     return {
-      menuItems: [{code: "DELETE", label: "Delete"}, { code: 'NEW_FILE', label: 'Create File' }],
-      treeData: [{"id": 2, "name": "Venus" , "children": [{"id": 3, "name": "Neptune", "children": [{"id": 5, "name": "Mars"}]}, {"id": 4, "name": "Stratus"} ] } ]
+      menuItems: [
+        { code: "DELETE", label: "Delete" },
+        { code: "NEW_FILE", label: "Create File" }
+      ],
+      treeData: [
+        {
+          id: 2,
+          name: "Folder 1",
+          children: [
+            {
+              id: 3,
+              name: "Folder 2",
+              children: [
+                {
+                  id: 5,
+                  name: "File 1"
+                }
+              ]
+            },
+            { id: 4, name: "File 2" }
+          ]
+        }
+      ]
     };
   }
 };
 </script>
-
-<style>
-</style>
