@@ -2,7 +2,7 @@
   <div class="homework">
     <AuthNavbar />
     <div>
-      <FileSidebar />
+      <FileSidebar class="w-25" />
       <Codebox class="w-75 float-right" />
     </div>
   </div>
@@ -19,20 +19,6 @@ export default {
     AuthNavbar,
     FileSidebar,
     Codebox
-  },
-  data() {
-    return {
-      code: "",
-      cmOptions: {
-        tabSize: 4,
-        mode: "text/javascript",
-        theme: "base16-dark",
-        lineNumbers: true,
-        line: true,
-        lineWrapping: true,
-        styleActiveLine: true
-      }
-    };
   }
 };
 </script>

@@ -1,7 +1,7 @@
 <template>
   <div class="file-sidebar">
     <b-tree-view
-      class="w-25 float-left"
+      class="float-left"
       :data="treeData"
       :contextMenuItems="menuItems"
     >

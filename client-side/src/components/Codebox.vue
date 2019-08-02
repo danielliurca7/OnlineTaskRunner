@@ -15,7 +15,7 @@ import { codemirror } from "vue-codemirror";
 
 import "codemirror/lib/codemirror.css";
 
-import "codemirror/mode/javascript/javascript.js";
+import "codemirror/mode/clike/clike.js";
 import "codemirror/theme/base16-dark.css";
 
 export default {
@@ -28,7 +28,7 @@ export default {
       code: "",
       cmOptions: {
         tabSize: 4,
-        mode: "text/javascript",
+        mode: "text/x-csrc",
         theme: "base16-dark",
         lineNumbers: true,
         line: true,
