@@ -1,5 +1,17 @@
 <template>
   <div class="file-sidebar">
+    <b-button-toolbar
+      key-nav
+      aria-label="Toolbar with button groups"
+      class="d-flex justify-content-end"
+    >
+      <b-button-group class="mx-1">
+        <b-button>Add</b-button>
+        <b-button>Rename</b-button>
+        <b-button>Delete</b-button>
+      </b-button-group>
+    </b-button-toolbar>
+
     <b-tree-view
       class="float-left"
       :data="treeData"
@@ -15,8 +27,9 @@ export default {
   data() {
     return {
       menuItems: [
-        { code: "DELETE", label: "Delete" },
-        { code: "NEW_FILE", label: "Create File" }
+        { code: "NEW_FILE", label: "Create" },
+        { code: "RENAME_FILE", label: "Rename" },
+        { code: "DELETE", label: "Delete" }
       ],
       treeData: [
         {

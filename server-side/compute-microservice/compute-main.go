@@ -1,4 +1,4 @@
-package compute-microservice
+package compute_microservice
 
 import (
 	"encoding/json"
@@ -7,20 +7,20 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// Runs the project in a workspace
-// Compiles if necessary
-// A run script will be included
-func getRunResult() {
+// Compile files if necessary
+func buildRequest(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// Compile files if necessary
-func compileFiles() {
+// Runs the project in a workspace
+// Compiles if necessary
+// A build script will be included
+func runRequest(w http.ResponseWriter, r *http.Request) {
 
 }
 
 // Run a specific test
-func runTest() {
+func registerChange(w http.ResponseWriter, r *http.Request) {
 
 }
 
@@ -32,7 +32,9 @@ func getFile() {
 func main() {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/api/run/{workspace}", getRunResult).Methods("GET")
+	r.HandleFunc("/api/build", getRunResult).Methods("PUT")
+	r.HandleFunc("/api/run", getRunResult).Methods("GET")
+	r.HandleFunc("/api/change/{file}", registerChange).Methods("PUT")
 
 	log.Fatal(http.ListenAndServe(":8001", r))
 }
