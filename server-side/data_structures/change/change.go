@@ -1,11 +1,11 @@
 package change
 
 type Key struct {
-	row int
-	column int
+	Row int
+	Column int
 }
 
 type Change struct {
-	key Key
-	value byte
+	Key Key
+	Value byte
 }

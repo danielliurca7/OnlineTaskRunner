@@ -6,6 +6,6 @@ import (
 )
 
 type Changes struct {
-	file File
-	changes []Change
+	File File
+	Changes []Change
 }

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"io/ioutil"
 	"github.com/gorilla/mux"
+	"../utils"
+	//"../data_structures/request"
 )
 
 // Sends request to create the file with the specified name
@@ -15,24 +17,59 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 
 	file := params["file"]
 
-	response, err := http.Post("http://localhost:8002/api/file/" + file, "application/json", nil)
+	response, err := utils.MakeRequest("http://localhost:8002/api/file/" + file, "POST", nil)
 
 	if err != nil {
 		fmt.Printf("The HTTP request failed with error %s\n", err)
 	} else {
 		data, _ := ioutil.ReadAll(response.Body)
-		fmt.Println(string(data))
+		
+		utils.WriteResponse(w, response.StatusCode, data)
 	}
+
+	defer response.Body.Close()
 }
 
 // Sends request to rename the file with the specified name
 func renameFile(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
 
+	file := params["file"]
+
+	body := utils.GetRequestBody(r)
+
+	response, err := utils.MakeRequest("http://localhost:8002/api/file/" + file, "PUT", body)
+
+	if err != nil {
+		fmt.Printf("The HTTP request failed with error %s\n", err)
+	} else {
+		data, _ := ioutil.ReadAll(response.Body)
+
+		utils.WriteResponse(w, response.StatusCode, data)
+	}
+
+	defer response.Body.Close()
 }
 
 // Sends request to delete the file with the specified name
 func deleteFile(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
 
+	file := params["file"]
+
+	log.Println("DELETE REQUEST");
+
+	response, err := utils.MakeRequest("http://localhost:8002/api/file/" + file, "DELETE", nil)
+
+	if err != nil {
+		fmt.Printf("The HTTP request failed with error %s\n", err)
+	} else {
+		data, _ := ioutil.ReadAll(response.Body)
+		
+		utils.WriteResponse(w, response.StatusCode, data)
+	}
+
+	defer response.Body.Close()
 }
 
 // Register if the client wrote some code
