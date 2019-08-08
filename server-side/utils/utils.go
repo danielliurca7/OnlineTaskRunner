@@ -1,16 +1,24 @@
 package utils
 
 import (
+	"os"
 	"bytes"
 	"net/http"
 	"io/ioutil"
+	"log"
 )
+
+func FileExists(path string) bool {
+	_, err := os.Stat(path)
+
+	return !os.IsNotExist(err)
+}
 
 func GetRequestBody(r *http.Request) []byte {
 	body, err := ioutil.ReadAll(r.Body)
 
     if err != nil {
-        panic(err)
+        log.Println("Couldn't read request body")
 	}
 
 	return body

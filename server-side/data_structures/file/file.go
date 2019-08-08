@@ -1,8 +1,6 @@
 package file
 
 type File struct {
-	Workspace string
+	Path string
 	Name string
-	Owner string
-	Content string
 }
