@@ -9,10 +9,18 @@ import (
 	"net/http"
 	"io/ioutil"
 	"github.com/gorilla/mux"
+	"github.com/graarh/golang-socketio"
+	"github.com/graarh/golang-socketio/transport"
 	"../utils"
 	"../data_structures/fileinfo"
 	"../data_structures/file"
+	"../data_structures/change"
+	"../data_structures/changes"
+	"../data_structures/containers"
 )
+
+const bufSize = 5
+var Changes []changes.Changes
 
 // Sends request to create the file with the specified name
 func createFile(w http.ResponseWriter, r *http.Request) {
@@ -133,11 +141,40 @@ func deleteFile(w http.ResponseWriter, r *http.Request) {
 // Register if the client wrote some code
 // Update the buffer and notify observers
 func registerChange(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
 
+	var c containers.OneChangeContainer
+	json.Unmarshal(body, &c)
+
+	ch.Emit("change", c)
+
+	i, changeList := utils.GetFileChanges(Changes, c.Fileinfo)
+
+	if i == -1 {
+		Changes = append(Changes, changes.Changes{
+			Fileinfo: c.Fileinfo, 
+			Changes: []change.Change{c.Change},
+		})
+	} else {
+		changeList = append(changeList, c.Change)
+
+		if len(changeList) >= bufSize {
+			//commit changes to io microservice
+			changeList = nil
+		}
+
+		Changes = append(
+			append(Changes[:i], changes.Changes{
+					Fileinfo: c.Fileinfo, 
+					Changes: changeList,
+				},
+			),
+			Changes[i+1:]...,
+		)
+	}
 }
 
-// After the buffer of changes is full
-// Send all of it to the io microservice
+// Send changes to obervers
 func commitChanges() {
 
 }
@@ -156,7 +193,7 @@ func buildRequest(w http.ResponseWriter, r *http.Request) {
 
 	hash := sha512.Sum512(body)
 
-	log.Println("Build request for workspace " + string(hash[:]))
+	log.Println("Build request for workspace " + string(body))
 
 	// Make a request to the compute microservice
 	response, err := utils.MakeRequest("http://localhost:8001/api/build", "PUT", hash[:])
@@ -178,7 +215,7 @@ func runRequest(w http.ResponseWriter, r *http.Request) {
 
 	hash := sha512.Sum512(body)
 
-	log.Println("Run request for workspace " + string(hash[:]))
+	log.Println("Run request for workspace " + string(body))
 
 	// Make a request to the compute microservice
 	response, err := utils.MakeRequest("http://localhost:8001/api/run", "GET", hash[:])
@@ -200,7 +237,7 @@ func cleanRequest(w http.ResponseWriter, r *http.Request) {
 
 	hash := sha512.Sum512(body)
 
-	log.Println("Clean request for workspace " + string(hash[:]))
+	log.Println("Clean request for workspace " + string(body))
 
 	// Make a request to the compute microservice
 	response, err := utils.MakeRequest("http://localhost:8001/api/clean", "DELETE", hash[:])
@@ -235,8 +272,23 @@ func editDockerImage(w http.ResponseWriter, r *http.Request) {
 
 }
 
+var ch *gosocketio.Channel
+
 func main() {
+	server := gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
+
+	server.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
+		log.Println("Connected")
+	})
+
+	server.On("subscribe", func(c *gosocketio.Channel, s string) {
+		ch = c
+		c.Join(s)
+	})
+
 	r := mux.NewRouter()
+
+	r.Handle("/socket.io/", server)
 
 	r.HandleFunc("/api/file", createFile).Methods("POST")
 	r.HandleFunc("/api/file", renameFile).Methods("PUT")

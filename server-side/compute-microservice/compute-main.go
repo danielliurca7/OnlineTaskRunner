@@ -1,20 +1,5 @@
 package main
 
-import (
-	//"os"
-	"os/exec"
-	"bytes"
-	//"encoding/json"
-	"path/filepath"
-	"log"
-	"net/http"
-	"github.com/gorilla/mux"
-	//"github.com/rs/xid"
-	"../utils"
-)
-
-const tmp = "D:\\Projects\\OnlineTaskRunner\\server-side\\tmp"
-
 /*
 Logic for hashing the directory names
 
@@ -53,11 +38,27 @@ TO BE CONTINUED
 	log.Println(path)
 	*/
 
+import (
+	"os"
+	"os/exec"
+	"bytes"
+	"io/ioutil"
+	//"encoding/json"
+	"path/filepath"
+	"log"
+	"net/http"
+	"github.com/gorilla/mux"
+	"github.com/graarh/golang-socketio"
+	"github.com/graarh/golang-socketio/transport"
+	//"github.com/rs/xid"
+	"../data_structures/containers"
+	"../utils"
+)
+
+const tmp = "D:\\Projects\\OnlineTaskRunner\\server-side\\tmp"
 
 // Compile files if necessary
 func buildRequest(w http.ResponseWriter, r *http.Request) {
-
-
 	workspace := "test"
 	path := filepath.Join(tmp, workspace)
 
@@ -123,8 +124,26 @@ func cleanRequest(w http.ResponseWriter, r *http.Request) {
 }
 
 // Run a specific test
-func registerChange(w http.ResponseWriter, r *http.Request) {
+func registerChange(c containers.OneChangeContainer) {
+	workspace := "test"
+	path := filepath.Join(tmp, workspace)
+	
+	filename := filepath.Join(path, c.Fileinfo.Name)
 
+    data, err := ioutil.ReadFile(filename)
+    if err != nil {
+        log.Println(err)
+	}
+
+	last := make([]byte, len(data[c.Change.Position:]))
+	copy(last, data[c.Change.Position:])
+
+	data = append(append(data[:c.Change.Position], []byte(c.Change.Value)...), last...)
+
+	err = ioutil.WriteFile(filename, data, 0666)
+    if err != nil {
+        log.Println(err)
+    }
 }
 
 // Get the file to run from specified microservice
@@ -133,12 +152,33 @@ func getFile() {
 }
 
 func main() {
+	c, err := gosocketio.Dial(
+		gosocketio.GetUrl("localhost", 8000, false),
+		transport.GetDefaultWebsocketTransport())
+	if err != nil { log.Println(err) }
+
+	defer c.Close()
+
+	err = c.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
+		c.Emit("subscribe", "test.c")
+	})
+	if err != nil { log.Println(err) }
+
+	err = c.On("/msg", func(h *gosocketio.Channel, args string) {
+		log.Println("--- Got chat message: ", args)
+	})
+	if err != nil { log.Println(err) }
+
+	err = c.On("change", func(h *gosocketio.Channel, c containers.OneChangeContainer) {
+		registerChange(c)
+	})
+	if err != nil { log.Println(err) }
+
 	r := mux.NewRouter()
 
 	r.HandleFunc("/api/build", buildRequest).Methods("PUT")
 	r.HandleFunc("/api/run", runRequest).Methods("GET")
 	r.HandleFunc("/api/clean", cleanRequest).Methods("DELETE")
-	r.HandleFunc("/api/change/{file}", registerChange).Methods("PUT")
 
 	log.Fatal(http.ListenAndServe(":8001", r))
 }
