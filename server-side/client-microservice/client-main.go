@@ -1,25 +1,28 @@
 package main
 
 import (
+	"crypto/sha512"
 	"encoding/json"
+	"io/ioutil"
+	"log"
+	"net/http"
 	"path/filepath"
 	"strconv"
-	"log"
-	"crypto/sha512"
-	"net/http"
-	"io/ioutil"
-	"github.com/gorilla/mux"
-	"github.com/graarh/golang-socketio"
-	"github.com/graarh/golang-socketio/transport"
-	"../utils"
-	"../data_structures/fileinfo"
-	"../data_structures/file"
+
 	"../data_structures/change"
 	"../data_structures/changes"
 	"../data_structures/containers"
+	"../data_structures/file"
+	"../data_structures/fileinfo"
+	"../utils"
+	"github.com/gorilla/mux"
+	gosocketio "github.com/graarh/golang-socketio"
+	"github.com/graarh/golang-socketio/transport"
 )
 
 const bufSize = 5
+
+// Changes is a
 var Changes []changes.Changes
 
 // Sends request to create the file with the specified name
@@ -29,7 +32,7 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 	var fi fileinfo.Fileinfo
 	json.Unmarshal(body, &fi)
 
-	file := file.File {
+	file := file.File{
 		Path: filepath.Join(
 			fi.Subject, filepath.Join(
 				strconv.Itoa(fi.Year), filepath.Join(
@@ -52,7 +55,7 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 		log.Printf("The HTTP request failed with error %s\n", err)
 	} else {
 		data, _ := ioutil.ReadAll(response.Body)
-		
+
 		utils.WriteResponse(w, response.StatusCode, data)
 	}
 
@@ -70,7 +73,7 @@ func renameFile(w http.ResponseWriter, r *http.Request) {
 
 	for _, f := range fi {
 
-		file := file.File {
+		file := file.File{
 			Path: filepath.Join(
 				f.Subject, filepath.Join(
 					strconv.Itoa(f.Year), filepath.Join(
@@ -81,7 +84,7 @@ func renameFile(w http.ResponseWriter, r *http.Request) {
 		files = append(files, file)
 	}
 
-	log.Println("Rename file request for path " + filepath.Join(files[0].Path, files[0].Name));
+	log.Println("Rename file request for path " + filepath.Join(files[0].Path, files[0].Name))
 
 	b, err := json.Marshal(files)
 	if err != nil {
@@ -109,7 +112,7 @@ func deleteFile(w http.ResponseWriter, r *http.Request) {
 	var fi fileinfo.Fileinfo
 	json.Unmarshal(body, &fi)
 
-	file := file.File {
+	file := file.File{
 		Path: filepath.Join(
 			fi.Subject, filepath.Join(
 				strconv.Itoa(fi.Year), filepath.Join(
@@ -152,8 +155,8 @@ func registerChange(w http.ResponseWriter, r *http.Request) {
 
 	if i == -1 {
 		Changes = append(Changes, changes.Changes{
-			Fileinfo: c.Fileinfo, 
-			Changes: []change.Change{c.Change},
+			Fileinfo: c.Fileinfo,
+			Changes:  []change.Change{c.Change},
 		})
 	} else {
 		changeList = append(changeList, c.Change)
@@ -165,9 +168,9 @@ func registerChange(w http.ResponseWriter, r *http.Request) {
 
 		Changes = append(
 			append(Changes[:i], changes.Changes{
-					Fileinfo: c.Fileinfo, 
-					Changes: changeList,
-				},
+				Fileinfo: c.Fileinfo,
+				Changes:  changeList,
+			},
 			),
 			Changes[i+1:]...,
 		)
@@ -277,13 +280,28 @@ var ch *gosocketio.Channel
 func main() {
 	server := gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
 
+	server.On(gosocketio.OnDisconnection, func(c *gosocketio.Channel) {
+		log.Println("Disconnected")
+		ch = c
+	})
+
 	server.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
 		log.Println("Connected")
+		ch = c
 	})
 
 	server.On("subscribe", func(c *gosocketio.Channel, s string) {
-		ch = c
 		c.Join(s)
+		log.Println("Sub")
+	})
+
+	server.On("unsubscribe", func(c *gosocketio.Channel, s string) {
+		c.Leave(s)
+		log.Println("Unsub")
+	})
+
+	server.On("change", func(h *gosocketio.Channel, c containers.OneChangeContainer) {
+		h.BroadcastTo(c.Fileinfo.Name, "change", c)
 	})
 
 	r := mux.NewRouter()

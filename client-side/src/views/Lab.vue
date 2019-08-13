@@ -2,8 +2,8 @@
   <div class="lab">
     <AuthNavbar />
     <div>
-      <FileSidebar class="w-25" />
       <Codebox class="w-75 float-right" />
+      <FileSidebar class="w-25" />
     </div>
   </div>
 </template>

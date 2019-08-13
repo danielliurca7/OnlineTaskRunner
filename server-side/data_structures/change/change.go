@@ -1,6 +1,8 @@
 package change
 
+// Change struct
 type Change struct {
 	Position int64
-	Value string
+	Current  string
+	Previous string
 }
