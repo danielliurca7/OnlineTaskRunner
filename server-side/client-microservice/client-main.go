@@ -282,7 +282,6 @@ func main() {
 
 	server.On(gosocketio.OnDisconnection, func(c *gosocketio.Channel) {
 		log.Println("Disconnected")
-		ch = c
 	})
 
 	server.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
@@ -292,12 +291,10 @@ func main() {
 
 	server.On("subscribe", func(c *gosocketio.Channel, s string) {
 		c.Join(s)
-		log.Println("Sub")
 	})
 
 	server.On("unsubscribe", func(c *gosocketio.Channel, s string) {
 		c.Leave(s)
-		log.Println("Unsub")
 	})
 
 	server.On("change", func(h *gosocketio.Channel, c containers.OneChangeContainer) {
