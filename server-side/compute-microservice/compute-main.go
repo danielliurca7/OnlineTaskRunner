@@ -1,50 +1,12 @@
 package main
 
-/*
-Logic for hashing the directory names
-
-var m = make(map[[64]byte]string)
-
-TO BE CONTINUED
-
-	rawBody := utils.GetRequestBody(r)
-	var body [64]byte
-	copy(body[:], rawBody[0:64])
-
-	folder, ok := m[body]
-
-	if !ok {
-		folder = xid.New().String()
-		path := filepath.Join(tmp, folder)
-
-		err := os.Mkdir(path, os.ModeDir)
-
-		if err != nil {
-			log.Println(err)
-			utils.WriteResponse(w, 500, []byte("Folder could not be created"))
-			return
-		}
-
-		m[body] = folder
-
-		utils.WriteResponse(w, 200, []byte("Folder created"))
-
-		// Get files from io_MS
-	}
-
-	log.Println("Build request for folder " + folder)
-
-	path := filepath.Join(tmp, folder)
-	log.Println(path)
-*/
-
 import (
-	//"os"
 	"bytes"
+	"encoding/json"
 	"io/ioutil"
+	"os"
 	"os/exec"
 
-	//"encoding/json"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -55,6 +17,7 @@ import (
 
 	//"github.com/rs/xid"
 	"../data_structures/containers"
+	"../data_structures/workspace"
 	"../utils"
 )
 
@@ -62,8 +25,19 @@ const tmp = "D:\\Projects\\OnlineTaskRunner\\server-side\\tmp"
 
 // Compile files if necessary
 func buildRequest(w http.ResponseWriter, r *http.Request) {
-	workspace := "test"
-	path := filepath.Join(tmp, workspace)
+	body := utils.GetRequestBody(r)
+
+	var workspace workspace.Workspace
+	json.Unmarshal(body, &workspace)
+
+	dir := utils.GetWorkspaceHash(workspace)
+	path := filepath.Join(tmp, dir)
+
+	log.Println("Build request for workspace", path)
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		utils.GetWorkspaceFiles(body, path)
+	}
 
 	// Format the make build command
 	cmd := exec.Command("make", "build")
@@ -84,8 +58,15 @@ func buildRequest(w http.ResponseWriter, r *http.Request) {
 
 // Runs the project in a workspace
 func runRequest(w http.ResponseWriter, r *http.Request) {
-	workspace := "test"
-	path := filepath.Join(tmp, workspace)
+	body := utils.GetRequestBody(r)
+
+	var workspace workspace.Workspace
+	json.Unmarshal(body, &workspace)
+
+	dir := utils.GetWorkspaceHash(workspace)
+	path := filepath.Join(tmp, dir)
+
+	log.Println("Run request for workspace", path)
 
 	// Format the make run command
 	cmd := exec.Command("make", "run")
@@ -106,8 +87,15 @@ func runRequest(w http.ResponseWriter, r *http.Request) {
 
 // Cleans the project in a workspace
 func cleanRequest(w http.ResponseWriter, r *http.Request) {
-	workspace := "test"
-	path := filepath.Join(tmp, workspace)
+	body := utils.GetRequestBody(r)
+
+	var workspace workspace.Workspace
+	json.Unmarshal(body, &workspace)
+
+	dir := utils.GetWorkspaceHash(workspace)
+	path := filepath.Join(tmp, dir)
+
+	log.Println("Clean request for workspace", path)
 
 	// Format the make clean command
 	cmd := exec.Command("make", "clean")
@@ -119,19 +107,41 @@ func cleanRequest(w http.ResponseWriter, r *http.Request) {
 	// Run the command
 	err := cmd.Run()
 	if err != nil {
-		log.Println("Run failed with", err)
+		log.Println("Clean failed with", err)
 		utils.WriteResponse(w, 400, e.Bytes())
 	} else {
 		utils.WriteResponse(w, 200, o.Bytes())
 	}
 }
 
+// Deletes the workspace folder
+func clearRequest(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	var workspace workspace.Workspace
+	json.Unmarshal(body, &workspace)
+
+	dir := utils.GetWorkspaceHash(workspace)
+	path := filepath.Join(tmp, dir)
+
+	err := os.RemoveAll(path)
+
+	if err != nil {
+		log.Println("Run failed with", err)
+		utils.WriteResponse(w, 400, []byte("Workspace could not be deleted"))
+	} else {
+		utils.WriteResponse(w, 200, []byte("Workspace deleted"))
+	}
+}
+
 // Run a specific test
 func registerChange(c containers.OneChangeContainer) {
-	workspace := "test"
+	workspace := utils.GetWorkspace(c.Fileinfo.Workspace)
 	path := filepath.Join(tmp, workspace)
 
-	filename := filepath.Join(path, c.Fileinfo.Name)
+	file := filepath.Join(c.Fileinfo.Path...)
+
+	filename := filepath.Join(path, file)
 
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -159,7 +169,7 @@ func registerChange(c containers.OneChangeContainer) {
 	}
 }
 
-// Get the file to run from specified microservice
+// Get the file to run from io microservice
 func getFile() {
 
 }
@@ -193,6 +203,7 @@ func main() {
 	r.HandleFunc("/api/build", buildRequest).Methods("PUT")
 	r.HandleFunc("/api/run", runRequest).Methods("GET")
 	r.HandleFunc("/api/clean", cleanRequest).Methods("DELETE")
+	r.HandleFunc("/api/clear", clearRequest).Methods("DELETE")
 
 	log.Fatal(http.ListenAndServe(":8001", r))
 }

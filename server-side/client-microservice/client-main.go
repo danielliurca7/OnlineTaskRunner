@@ -1,19 +1,15 @@
 package main
 
 import (
-	"crypto/sha512"
 	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"path/filepath"
-	"strconv"
 
 	"../data_structures/change"
 	"../data_structures/changes"
 	"../data_structures/containers"
-	"../data_structures/file"
-	"../data_structures/fileinfo"
 	"../utils"
 	"github.com/gorilla/mux"
 	gosocketio "github.com/graarh/golang-socketio"
@@ -29,27 +25,10 @@ var Changes []changes.Changes
 func createFile(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	var fi fileinfo.Fileinfo
-	json.Unmarshal(body, &fi)
-
-	file := file.File{
-		Path: filepath.Join(
-			fi.Subject, filepath.Join(
-				strconv.Itoa(fi.Year), filepath.Join(
-					fi.AssignmentName, fi.Owner))),
-		Name: fi.Name,
-	}
-
-	b, err := json.Marshal(file)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	log.Println("Create file request for file " + filepath.Join(file.Path, file.Name))
+	log.Println("Create file request")
 
 	// Make a request to the io microservice
-	response, err := utils.MakeRequest("http://localhost:8002/api/file", "POST", b)
+	response, err := utils.MakeRequest("http://localhost:8002/api/file", "POST", body)
 
 	if err != nil {
 		log.Printf("The HTTP request failed with error %s\n", err)
@@ -66,34 +45,10 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 func renameFile(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	var fi []fileinfo.Fileinfo
-	json.Unmarshal(body, &fi)
-
-	var files []file.File
-
-	for _, f := range fi {
-
-		file := file.File{
-			Path: filepath.Join(
-				f.Subject, filepath.Join(
-					strconv.Itoa(f.Year), filepath.Join(
-						f.AssignmentName, f.Owner))),
-			Name: f.Name,
-		}
-
-		files = append(files, file)
-	}
-
-	log.Println("Rename file request for path " + filepath.Join(files[0].Path, files[0].Name))
-
-	b, err := json.Marshal(files)
-	if err != nil {
-		log.Println(err)
-		return
-	}
+	log.Println("Rename file request")
 
 	// Make a request to the io microservice
-	response, err := utils.MakeRequest("http://localhost:8002/api/file", "PUT", b)
+	response, err := utils.MakeRequest("http://localhost:8002/api/file", "PUT", body)
 
 	if err != nil {
 		log.Printf("The HTTP request failed with error %s\n", err)
@@ -109,27 +64,10 @@ func renameFile(w http.ResponseWriter, r *http.Request) {
 func deleteFile(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	var fi fileinfo.Fileinfo
-	json.Unmarshal(body, &fi)
-
-	file := file.File{
-		Path: filepath.Join(
-			fi.Subject, filepath.Join(
-				strconv.Itoa(fi.Year), filepath.Join(
-					fi.AssignmentName, fi.Owner))),
-		Name: fi.Name,
-	}
-
-	b, err := json.Marshal(file)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	log.Println("Delete file request for file " + filepath.Join(file.Path, file.Name))
+	log.Println("Delete file request")
 
 	// Make a request to the io microservice
-	response, err := utils.MakeRequest("http://localhost:8002/api/file", "DELETE", b)
+	response, err := utils.MakeRequest("http://localhost:8002/api/file", "DELETE", body)
 
 	if err != nil {
 		log.Printf("The HTTP request failed with error %s\n", err)
@@ -194,12 +132,10 @@ func verifyConnection(w http.ResponseWriter, r *http.Request) {
 func buildRequest(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	hash := sha512.Sum512(body)
-
 	log.Println("Build request for workspace " + string(body))
 
 	// Make a request to the compute microservice
-	response, err := utils.MakeRequest("http://localhost:8001/api/build", "PUT", hash[:])
+	response, err := utils.MakeRequest("http://localhost:8001/api/build", "PUT", body)
 
 	if err != nil {
 		log.Printf("The HTTP request failed with error %s\n", err)
@@ -216,12 +152,10 @@ func buildRequest(w http.ResponseWriter, r *http.Request) {
 func runRequest(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	hash := sha512.Sum512(body)
-
 	log.Println("Run request for workspace " + string(body))
 
 	// Make a request to the compute microservice
-	response, err := utils.MakeRequest("http://localhost:8001/api/run", "GET", hash[:])
+	response, err := utils.MakeRequest("http://localhost:8001/api/run", "GET", body)
 
 	if err != nil {
 		log.Printf("The HTTP request failed with error %s\n", err)
@@ -238,12 +172,10 @@ func runRequest(w http.ResponseWriter, r *http.Request) {
 func cleanRequest(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	hash := sha512.Sum512(body)
-
 	log.Println("Clean request for workspace " + string(body))
 
 	// Make a request to the compute microservice
-	response, err := utils.MakeRequest("http://localhost:8001/api/clean", "DELETE", hash[:])
+	response, err := utils.MakeRequest("http://localhost:8001/api/clean", "DELETE", body)
 
 	if err != nil {
 		log.Printf("The HTTP request failed with error %s\n", err)
@@ -298,7 +230,7 @@ func main() {
 	})
 
 	server.On("change", func(h *gosocketio.Channel, c containers.OneChangeContainer) {
-		h.BroadcastTo(c.Fileinfo.Name, "change", c)
+		h.BroadcastTo(filepath.Join(c.Fileinfo.Path...), "change", c)
 	})
 
 	r := mux.NewRouter()
