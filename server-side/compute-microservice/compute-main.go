@@ -15,29 +15,34 @@ import (
 	gosocketio "github.com/graarh/golang-socketio"
 	"github.com/graarh/golang-socketio/transport"
 
-	//"github.com/rs/xid"
 	"../data_structures/containers"
-	"../data_structures/workspace"
 	"../utils"
 )
 
-const tmp = "D:\\Projects\\OnlineTaskRunner\\server-side\\tmp"
+// Get the workspace from io microservice
+func getRequest(w http.ResponseWriter, r *http.Request) {
+	info := utils.GetFileinfoFromRequest(r)
+
+	b, err := json.Marshal(info.Workspace)
+	utils.CheckError(err)
+
+	dir := utils.GetWorkspaceHash(info.Workspace)
+	path := filepath.Join(utils.Tmp, dir)
+
+	log.Println("Get request for workspace", path)
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		utils.GetWorkspaceFiles(b, path)
+	}
+
+	ch.Emit("subscribe", info)
+}
 
 // Compile files if necessary
 func buildRequest(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	var workspace workspace.Workspace
-	json.Unmarshal(body, &workspace)
-
-	dir := utils.GetWorkspaceHash(workspace)
-	path := filepath.Join(tmp, dir)
+	path := utils.GetPathFromRequest(r)
 
 	log.Println("Build request for workspace", path)
-
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		utils.GetWorkspaceFiles(body, path)
-	}
 
 	// Format the make build command
 	cmd := exec.Command("make", "build")
@@ -58,13 +63,7 @@ func buildRequest(w http.ResponseWriter, r *http.Request) {
 
 // Runs the project in a workspace
 func runRequest(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	var workspace workspace.Workspace
-	json.Unmarshal(body, &workspace)
-
-	dir := utils.GetWorkspaceHash(workspace)
-	path := filepath.Join(tmp, dir)
+	path := utils.GetPathFromRequest(r)
 
 	log.Println("Run request for workspace", path)
 
@@ -87,13 +86,7 @@ func runRequest(w http.ResponseWriter, r *http.Request) {
 
 // Cleans the project in a workspace
 func cleanRequest(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	var workspace workspace.Workspace
-	json.Unmarshal(body, &workspace)
-
-	dir := utils.GetWorkspaceHash(workspace)
-	path := filepath.Join(tmp, dir)
+	path := utils.GetPathFromRequest(r)
 
 	log.Println("Clean request for workspace", path)
 
@@ -116,13 +109,7 @@ func cleanRequest(w http.ResponseWriter, r *http.Request) {
 
 // Deletes the workspace folder
 func clearRequest(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	var workspace workspace.Workspace
-	json.Unmarshal(body, &workspace)
-
-	dir := utils.GetWorkspaceHash(workspace)
-	path := filepath.Join(tmp, dir)
+	path := utils.GetPathFromRequest(r)
 
 	err := os.RemoveAll(path)
 
@@ -136,70 +123,47 @@ func clearRequest(w http.ResponseWriter, r *http.Request) {
 
 // Run a specific test
 func registerChange(c containers.OneChangeContainer) {
-	workspace := utils.GetWorkspace(c.Fileinfo.Workspace)
-	path := filepath.Join(tmp, workspace)
+	workspace := utils.GetWorkspaceHash(c.Fileinfo.Workspace)
+	path := filepath.Join(utils.Tmp, workspace)
 
 	file := filepath.Join(c.Fileinfo.Path...)
 
 	filename := filepath.Join(path, file)
 
+	log.Println("Change on file", filename)
+
 	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		log.Println(err)
-	}
+	utils.CheckError(err)
 
-	var start, end int64
-	var last []byte
-
-	start = c.Change.Position
-	end = c.Change.Position + int64(len(c.Change.Previous))
-
-	if int64(len(data)) >= end {
-		last = make([]byte, len(data[end:]))
-		copy(last, data[end:])
-	}
-
-	data = append(append(data[:start], []byte(c.Change.Current)...), last...)
-
-	//log.Println(c.Change, c.Fileinfo)
+	data = utils.ApplyChange(data, c.Change)
 
 	err = ioutil.WriteFile(filename, data, 0666)
-	if err != nil {
-		log.Println(err)
-	}
+	utils.CheckError(err)
 }
 
-// Get the file to run from io microservice
-func getFile() {
-
-}
+var ch *gosocketio.Channel
 
 func main() {
 	c, err := gosocketio.Dial(
 		gosocketio.GetUrl("localhost", 8000, false),
 		transport.GetDefaultWebsocketTransport())
-	if err != nil {
-		log.Println(err)
-	}
+	utils.CheckError(err)
 
 	defer c.Close()
 
 	err = c.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
-		c.Emit("subscribe", "test.c")
+		ch = c
 	})
-	if err != nil {
-		log.Println(err)
-	}
+	utils.CheckError(err)
 
 	err = c.On("change", func(h *gosocketio.Channel, c containers.OneChangeContainer) {
 		registerChange(c)
 	})
-	if err != nil {
-		log.Println(err)
-	}
+	utils.CheckError(err)
 
 	r := mux.NewRouter()
 
+	r.HandleFunc("/api/get", getRequest).Methods("GET")
 	r.HandleFunc("/api/build", buildRequest).Methods("PUT")
 	r.HandleFunc("/api/run", runRequest).Methods("GET")
 	r.HandleFunc("/api/clean", cleanRequest).Methods("DELETE")

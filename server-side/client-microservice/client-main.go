@@ -2,14 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"net/http"
-	"path/filepath"
 
 	"../data_structures/change"
 	"../data_structures/changes"
 	"../data_structures/containers"
+	"../data_structures/fileinfo"
 	"../utils"
 	"github.com/gorilla/mux"
 	gosocketio "github.com/graarh/golang-socketio"
@@ -30,15 +29,7 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 	// Make a request to the io microservice
 	response, err := utils.MakeRequest("http://localhost:8002/api/file", "POST", body)
 
-	if err != nil {
-		log.Printf("The HTTP request failed with error %s\n", err)
-	} else {
-		data, _ := ioutil.ReadAll(response.Body)
-
-		utils.WriteResponse(w, response.StatusCode, data)
-	}
-
-	defer response.Body.Close()
+	utils.ForwardResponse(w, response, err)
 }
 
 // Sends request to rename the file with the specified name
@@ -50,74 +41,30 @@ func renameFile(w http.ResponseWriter, r *http.Request) {
 	// Make a request to the io microservice
 	response, err := utils.MakeRequest("http://localhost:8002/api/file", "PUT", body)
 
-	if err != nil {
-		log.Printf("The HTTP request failed with error %s\n", err)
-	} else {
-		data, _ := ioutil.ReadAll(response.Body)
-		utils.WriteResponse(w, response.StatusCode, data)
-	}
-
-	defer response.Body.Close()
+	utils.ForwardResponse(w, response, err)
 }
 
 // Sends request to delete the file with the specified name
 func deleteFile(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	log.Println("Delete file request")
+	log.Println("Delete file request", string(body))
 
 	// Make a request to the io microservice
 	response, err := utils.MakeRequest("http://localhost:8002/api/file", "DELETE", body)
 
-	if err != nil {
-		log.Printf("The HTTP request failed with error %s\n", err)
-	} else {
-		data, _ := ioutil.ReadAll(response.Body)
-		utils.WriteResponse(w, response.StatusCode, data)
-	}
-
-	defer response.Body.Close()
+	utils.ForwardResponse(w, response, err)
 }
 
-// Register if the client wrote some code
-// Update the buffer and notify observers
-func registerChange(w http.ResponseWriter, r *http.Request) {
+func getFileTree(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	var c containers.OneChangeContainer
-	json.Unmarshal(body, &c)
+	log.Println("Get file tree request", string(body))
 
-	ch.Emit("change", c)
+	// Make a request to the io microservice
+	response, err := utils.MakeRequest("http://localhost:8002/api/filetree", "GET", body)
 
-	i, changeList := utils.GetFileChanges(Changes, c.Fileinfo)
-
-	if i == -1 {
-		Changes = append(Changes, changes.Changes{
-			Fileinfo: c.Fileinfo,
-			Changes:  []change.Change{c.Change},
-		})
-	} else {
-		changeList = append(changeList, c.Change)
-
-		if len(changeList) >= bufSize {
-			//commit changes to io microservice
-			changeList = nil
-		}
-
-		Changes = append(
-			append(Changes[:i], changes.Changes{
-				Fileinfo: c.Fileinfo,
-				Changes:  changeList,
-			},
-			),
-			Changes[i+1:]...,
-		)
-	}
-}
-
-// Send changes to obervers
-func commitChanges() {
-
+	utils.ForwardResponse(w, response, err)
 }
 
 // If the client wants to download the file
@@ -132,19 +79,12 @@ func verifyConnection(w http.ResponseWriter, r *http.Request) {
 func buildRequest(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	log.Println("Build request for workspace " + string(body))
+	log.Println("Build request for workspace ", string(body))
 
 	// Make a request to the compute microservice
 	response, err := utils.MakeRequest("http://localhost:8001/api/build", "PUT", body)
 
-	if err != nil {
-		log.Printf("The HTTP request failed with error %s\n", err)
-	} else {
-		data, _ := ioutil.ReadAll(response.Body)
-		utils.WriteResponse(w, response.StatusCode, data)
-	}
-
-	defer response.Body.Close()
+	utils.ForwardResponse(w, response, err)
 }
 
 // Make a request to the compute microservice
@@ -152,19 +92,12 @@ func buildRequest(w http.ResponseWriter, r *http.Request) {
 func runRequest(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	log.Println("Run request for workspace " + string(body))
+	log.Println("Run request for workspace", string(body))
 
 	// Make a request to the compute microservice
 	response, err := utils.MakeRequest("http://localhost:8001/api/run", "GET", body)
 
-	if err != nil {
-		log.Printf("The HTTP request failed with error %s\n", err)
-	} else {
-		data, _ := ioutil.ReadAll(response.Body)
-		utils.WriteResponse(w, response.StatusCode, data)
-	}
-
-	defer response.Body.Close()
+	utils.ForwardResponse(w, response, err)
 }
 
 // Make a request to the compute microservice
@@ -172,19 +105,25 @@ func runRequest(w http.ResponseWriter, r *http.Request) {
 func cleanRequest(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	log.Println("Clean request for workspace " + string(body))
+	log.Println("Clean request for workspace", string(body))
 
 	// Make a request to the compute microservice
 	response, err := utils.MakeRequest("http://localhost:8001/api/clean", "DELETE", body)
 
-	if err != nil {
-		log.Printf("The HTTP request failed with error %s\n", err)
-	} else {
-		data, _ := ioutil.ReadAll(response.Body)
-		utils.WriteResponse(w, response.StatusCode, data)
-	}
+	utils.ForwardResponse(w, response, err)
+}
 
-	defer response.Body.Close()
+// Make a request to the compute microservice
+// To delete the workspace
+func clearRequest(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	log.Println("Clear request for workspace", string(body))
+
+	// Make a request to the compute microservice
+	response, err := utils.MakeRequest("http://localhost:8001/api/clear", "DELETE", body)
+
+	utils.ForwardResponse(w, response, err)
 }
 
 // Creates a custom test for a certain workspace
@@ -207,6 +146,41 @@ func editDockerImage(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Register if the client wrote some code
+// Update the buffer and notify observers
+func registerChange(h *gosocketio.Channel, c containers.OneChangeContainer) {
+	h.BroadcastTo(utils.GetPath(c.Fileinfo), "change", c)
+
+	i, changeList := utils.GetFileChanges(Changes, c.Fileinfo)
+
+	if i == -1 {
+		Changes = append(Changes, changes.Changes{
+			Fileinfo: c.Fileinfo,
+			Changes:  []change.Change{c.Change},
+		})
+	} else {
+		changeList.Changes = append(changeList.Changes, c.Change)
+
+		if len(changeList.Changes) >= bufSize {
+			//commit changes to io microservice
+			b, err := json.Marshal(changeList)
+			utils.CheckError(err)
+
+			_, err = utils.MakeRequest("http://localhost:8002/api/file", "PATCH", b)
+			utils.CheckError(err)
+
+			//log.Println(response)
+
+			changeList.Changes = nil
+		}
+
+		Changes = append(
+			append(Changes[:i], changeList),
+			Changes[i+1:]...,
+		)
+	}
+}
+
 var ch *gosocketio.Channel
 
 func main() {
@@ -221,17 +195,27 @@ func main() {
 		ch = c
 	})
 
-	server.On("subscribe", func(c *gosocketio.Channel, s string) {
-		c.Join(s)
+	server.On("watch", func(c *gosocketio.Channel, f fileinfo.Fileinfo) {
+		b, err := json.Marshal(f)
+		utils.CheckError(err)
+
+		_, err = utils.MakeRequest("http://localhost:8001/api/get", "GET", b)
+		utils.CheckError(err)
+
+		c.Join(utils.GetPath(f))
 	})
 
-	server.On("unsubscribe", func(c *gosocketio.Channel, s string) {
-		c.Leave(s)
+	server.On("subscribe", func(c *gosocketio.Channel, f fileinfo.Fileinfo) {
+		log.Println("subscribe", f)
+
+		c.Join(utils.GetPath(f))
 	})
 
-	server.On("change", func(h *gosocketio.Channel, c containers.OneChangeContainer) {
-		h.BroadcastTo(filepath.Join(c.Fileinfo.Path...), "change", c)
+	server.On("unsubscribe", func(c *gosocketio.Channel, f fileinfo.Fileinfo) {
+		c.Leave(utils.GetPath(f))
 	})
+
+	server.On("change", registerChange)
 
 	r := mux.NewRouter()
 
@@ -242,11 +226,12 @@ func main() {
 	r.HandleFunc("/api/file", deleteFile).Methods("DELETE")
 	r.HandleFunc("/api/file", verifyConnection).Methods("GET")
 
-	r.HandleFunc("/api/change", registerChange).Methods("PUT")
+	r.HandleFunc("/api/filetree", getFileTree).Methods("POST")
 
 	r.HandleFunc("/api/request", buildRequest).Methods("PUT")
-	r.HandleFunc("/api/request", runRequest).Methods("GET")
-	r.HandleFunc("/api/request", cleanRequest).Methods("DELETE")
+	r.HandleFunc("/api/request", runRequest).Methods("POST")
+	r.HandleFunc("/api/request", cleanRequest).Methods("PATCH")
+	r.HandleFunc("/api/request", clearRequest).Methods("DELETE")
 
 	r.HandleFunc("/api/test", createCustomTest).Methods("POST")
 	r.HandleFunc("/api/build", editBuild).Methods("PUT")

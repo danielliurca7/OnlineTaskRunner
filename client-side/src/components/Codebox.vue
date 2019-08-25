@@ -13,8 +13,6 @@
 </template>
 
 <script>
-//import axios from "axios";
-
 import { mapGetters } from "vuex";
 
 import { codemirror } from "vue-codemirror";
@@ -28,6 +26,14 @@ export default {
   name: "Codebox",
   components: {
     codemirror
+  },
+  props: ['file'],
+  watch: {
+    file: function(newVal, oldVal) {
+      this.code_loaded = true;      
+      this.code = newVal.data;
+      this.$socket.emit("watch", newVal.info);
+    }
   },
   data() {
     return {
@@ -47,7 +53,8 @@ export default {
         line: 0,
         ch: 0
       },
-      received: false
+      received: false,
+      code_loaded: false
     };
   },
   computed: {
@@ -58,11 +65,6 @@ export default {
   },
   mounted() {
     this.codemirror.setSize("100%", "51.2em");
-
-    this.$options.sockets.connect = () => {
-      this.$socket.emit("subscribe", "test.c");
-      console.log("Subscribing to test.c");
-    };
 
     this.$options.sockets.change = ch => {
       if (ch.Fileinfo.Owner != this.getUsername) {
@@ -172,13 +174,8 @@ export default {
         this.received = true;
       }
     };
-
-    this.$socket.emit("subscribe", "test.c");
-    console.log("Subscribing to test.c");
   },
   beforeDestroy() {
-    this.$socket.emit("unsubscribe", "test.c");
-    console.log("Unsubscribing from test.c");
   },
   methods: {
     onCmCodeChange() {
@@ -218,20 +215,29 @@ export default {
 
       this.last_code = this.code;
 
-      this.$socket.emit("change", {
-        fileinfo: {
-          owner: this.getUsername,
-          subject: "APD",
-          assignmentname: "Tema de smecherie",
-          name: "test.c",
-          year: 2019
-        },
+      console.log({
+        fileinfo: this.file.info,
         change: {
           position: start,
           current: a,
           previous: b
         }
       });
+
+      console.log(this.code_loaded)
+
+      if (!this.code_loaded) {
+        this.$socket.emit("change", {
+          fileinfo: this.file.info,
+          change: {
+            position: start,
+            current: a,
+            previous: b
+          }
+        });
+      } else {
+        this.code_loaded = false;
+      }
     },
     onCursorActivity() {
       if (!this.received) {

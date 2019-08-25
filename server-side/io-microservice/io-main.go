@@ -9,14 +9,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"../data_structures/changes"
 	"../data_structures/file"
 	"../data_structures/fileinfo"
+	"../data_structures/tree"
 	"../data_structures/workspace"
 	"../utils"
 	"github.com/gorilla/mux"
 )
 
-const fileSystem = "D:\\Projects\\OnlineTaskRunner\\server-side\\file_system\\"
+const fileSystem = "D:\\Projects\\OnlineTaskRunner\\server-side\\file_system"
+const sep = string(os.PathSeparator)
 
 // Creates the file with the specified name
 func createFile(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +110,7 @@ func deleteFile(w http.ResponseWriter, r *http.Request) {
 		err := os.Remove(path)
 
 		if err != nil {
-			log.Println(err.Error())
+			log.Println(err)
 			utils.WriteResponse(w, 500, []byte("File could not be deleted"))
 			return
 		}
@@ -139,7 +142,64 @@ func getFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func getFileTree(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
 
+	var ws workspace.Workspace
+	json.Unmarshal(body, &ws)
+
+	path := utils.GetWorkspace(ws)
+
+	log.Println("Get file tree request for path", path)
+
+	path = filepath.Join(fileSystem, path)
+	pathLen := len(strings.Split(path, sep))
+
+	root := &tree.Node{}
+
+	err := filepath.Walk(path,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			pathParts := strings.Split(path, sep)[pathLen:]
+
+			presentNode := root
+
+			for index, fileName := range pathParts {
+				found := false
+
+				for _, node := range presentNode.Children {
+					if node.Name == fileName {
+						presentNode = node
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					node := &tree.Node{
+						Name:     fileName,
+						Children: []*tree.Node{},
+						IsDir:    info.IsDir(),
+						Path:     pathParts[:index+1],
+					}
+					presentNode.Children = append(presentNode.Children, node)
+					presentNode = node
+				}
+			}
+
+			return nil
+		})
+	if err != nil {
+		log.Println(err)
+		utils.WriteResponse(w, 500, []byte("Could not walk through file tree"))
+	}
+
+	b, err := json.Marshal(root.Children)
+	utils.CheckError(err)
+
+	utils.WriteResponse(w, 200, b)
 }
 
 func getWorkSpace(w http.ResponseWriter, r *http.Request) {
@@ -153,7 +213,7 @@ func getWorkSpace(w http.ResponseWriter, r *http.Request) {
 	log.Println("Get file tree request for path", path)
 
 	path = filepath.Join(fileSystem, path)
-	pathLen := len(strings.Split(path, string(os.PathSeparator)))
+	pathLen := len(strings.Split(path, sep))
 
 	var files []file.File
 
@@ -177,9 +237,9 @@ func getWorkSpace(w http.ResponseWriter, r *http.Request) {
 
 			path = strings.Join(
 				strings.Split(
-					path, string(os.PathSeparator),
+					path, sep,
 				)[pathLen:],
-				string(os.PathSeparator),
+				sep,
 			)
 
 			file := file.File{
@@ -200,16 +260,31 @@ func getWorkSpace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	b, err := json.Marshal(files)
-	if err != nil {
-		log.Println(err)
-	}
+	utils.CheckError(err)
 
 	utils.WriteResponse(w, 200, b)
 }
 
 // Modifies and stores the file according to the request
-func updateFile(w http.ResponseWriter, r *http.Request) {
+func updateFiles(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
 
+	var changesList changes.Changes
+	json.Unmarshal(body, &changesList)
+
+	log.Println("Update file request for", utils.GetPath(changesList.Fileinfo))
+
+	path := filepath.Join(fileSystem, utils.GetPath(changesList.Fileinfo))
+
+	data, err := ioutil.ReadFile(path)
+	utils.CheckError(err)
+
+	for _, change := range changesList.Changes {
+		data = utils.ApplyChange(data, change)
+	}
+
+	err = ioutil.WriteFile(path, data, 0666)
+	utils.CheckError(err)
 }
 
 func main() {
@@ -218,8 +293,8 @@ func main() {
 	r.HandleFunc("/api/file", createFile).Methods("POST")
 	r.HandleFunc("/api/file", renameFile).Methods("PUT")
 	r.HandleFunc("/api/file", deleteFile).Methods("DELETE")
-	r.HandleFunc("/api/file", getFile).Methods("GET")
-	r.HandleFunc("/api/file", updateFile).Methods("PATCH")
+	r.HandleFunc("/api/get", getFile).Methods("POST")
+	r.HandleFunc("/api/file", updateFiles).Methods("PATCH")
 
 	r.HandleFunc("/api/filetree", getFileTree).Methods("GET")
 	r.HandleFunc("/api/workspace", getWorkSpace).Methods("GET")

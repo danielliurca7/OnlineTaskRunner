@@ -1,11 +1,11 @@
 package changes
 
 import (
-	"../fileinfo"	
 	"../change"
+	"../fileinfo"
 )
 
 type Changes struct {
 	Fileinfo fileinfo.Fileinfo
-	Changes []change.Change
+	Changes  []change.Change
 }

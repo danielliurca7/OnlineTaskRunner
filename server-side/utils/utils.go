@@ -19,6 +19,14 @@ import (
 	"../data_structures/workspace"
 )
 
+const Tmp = "D:\\Projects\\OnlineTaskRunner\\server-side\\tmp"
+
+func CheckError(err error) {
+	if err != nil {
+		log.Println(err)
+	}
+}
+
 func FileExists(path string) bool {
 	_, err := os.Stat(path)
 
@@ -53,19 +61,31 @@ func MakeRequest(host string, method string, value []byte) (*http.Response, erro
 	return client.Do(request)
 }
 
+func ForwardResponse(w http.ResponseWriter, response *http.Response, err error) {
+	if err != nil {
+		log.Printf("The HTTP request failed with error %s\n", err)
+	} else {
+		data, _ := ioutil.ReadAll(response.Body)
+
+		WriteResponse(w, response.StatusCode, data)
+	}
+
+	defer response.Body.Close()
+}
+
 func WriteResponse(w http.ResponseWriter, statusCode int, data []byte) {
 	w.WriteHeader(statusCode)
 	w.Write(data)
 }
 
-func GetFileChanges(changes []changes.Changes, fileinfo fileinfo.Fileinfo) (int, []change.Change) {
-	for i, c := range changes {
-		if c.Fileinfo.Equals(&fileinfo) {
-			return i, c.Changes
+func GetFileChanges(c []changes.Changes, fileinfo fileinfo.Fileinfo) (int, changes.Changes) {
+	for i, change := range c {
+		if change.Fileinfo.Equals(&fileinfo) {
+			return i, change
 		}
 	}
 
-	return -1, nil
+	return -1, changes.Changes{}
 }
 
 func GetWorkspace(w workspace.Workspace) string {
@@ -81,6 +101,27 @@ func GetWorkspaceHash(w workspace.Workspace) string {
 	bytes := hex.EncodeToString(h.Sum(nil))
 
 	return string(bytes)
+}
+
+func GetPathFromRequest(r *http.Request) string {
+	body := GetRequestBody(r)
+
+	var workspace workspace.Workspace
+	json.Unmarshal(body, &workspace)
+
+	dir := GetWorkspaceHash(workspace)
+	path := filepath.Join(Tmp, dir)
+
+	return path
+}
+
+func GetFileinfoFromRequest(r *http.Request) fileinfo.Fileinfo {
+	body := GetRequestBody(r)
+
+	var fileinfo fileinfo.Fileinfo
+	json.Unmarshal(body, &fileinfo)
+
+	return fileinfo
 }
 
 func GetPath(fi fileinfo.Fileinfo) string {
@@ -124,4 +165,19 @@ func GetWorkspaceFiles(workspace []byte, path string) {
 			}
 		}
 	}
+}
+
+func ApplyChange(data []byte, c change.Change) []byte {
+	var start, end int64
+	var last []byte
+
+	start = c.Position
+	end = c.Position + int64(len(c.Previous))
+
+	if int64(len(data)) >= end {
+		last = make([]byte, len(data[end:]))
+		copy(last, data[end:])
+	}
+
+	return append(append(data[:start], []byte(c.Current)...), last...)
 }

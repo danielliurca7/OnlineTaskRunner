@@ -2,8 +2,8 @@
   <div class="lab">
     <AuthNavbar />
     <div>
-      <Codebox class="w-75 float-right" />
-      <FileSidebar class="w-25" />
+      <Codebox :file="file" class="w-75 float-right" />
+      <FileSidebar @load_file="update_code($event)" class="w-25" />
     </div>
   </div>
 </template>
@@ -19,6 +19,16 @@ export default {
     AuthNavbar,
     FileSidebar,
     Codebox
+  },
+  data() {
+    return {
+      file: null
+    }
+  },
+  methods: {
+    update_code(file) {
+      this.file = file;
+    }
   }
 };
 </script>
