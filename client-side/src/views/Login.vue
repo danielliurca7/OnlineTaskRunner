@@ -41,6 +41,7 @@
 
 <script>
 // @ is an alias to /src
+import axios from "axios";
 import Navbar from "@/components/Navbar.vue";
 import { mapActions } from "vuex";
 
@@ -61,6 +62,28 @@ export default {
     onSubmit: function() {
       // authentication with cs.curs api
       // check credentials
+      var year = 2018;
+      var base_url = "https://acs.curs.pub.ro/" + year + "/login/token.php";
+      var params = {
+        username: this.username,
+        password: this.password,
+        service: "moodle_mobile_app"
+      };
+
+      var queryString = Object.keys(params)
+        .map(key => key + "=" + params[key])
+        .join("&");
+
+      var url = base_url + "?" + queryString;
+
+      axios
+        .post(url)
+        .then(response => {
+          console.log(response.data);
+        })
+        .catch(error => {
+          console.log(error);
+        });
 
       this.setUsername(this.username);
 

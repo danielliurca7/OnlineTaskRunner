@@ -104,6 +104,8 @@ func deleteFile(w http.ResponseWriter, r *http.Request) {
 
 	path = filepath.Join(fileSystem, path)
 
+	log.Println(fi)
+
 	if !utils.FileExists(path) {
 		utils.WriteResponse(w, 400, []byte("No file at the specified path"))
 	} else {
@@ -242,14 +244,14 @@ func getWorkSpace(w http.ResponseWriter, r *http.Request) {
 				sep,
 			)
 
-			file := file.File{
+			f := file.File{
 				Path:  path,
 				Data:  string(data),
 				IsDir: info.IsDir(),
 			}
 
 			if path != "" {
-				files = append(files, file)
+				files = append(files, f)
 			}
 
 			return nil

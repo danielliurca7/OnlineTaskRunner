@@ -19,9 +19,8 @@ import (
 	"../utils"
 )
 
-// Get the workspace from io microservice
-func getRequest(w http.ResponseWriter, r *http.Request) {
-	info := utils.GetFileinfoFromRequest(r)
+func get(w http.ResponseWriter, body []byte) {
+	info := utils.GetFileinfoFromBody(body)
 
 	b, err := json.Marshal(info.Workspace)
 	utils.CheckError(err)
@@ -31,16 +30,22 @@ func getRequest(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("Get request for workspace", path)
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		utils.GetWorkspaceFiles(b, path)
+	if _, err = os.Stat(path); os.IsNotExist(err) {
+		err = utils.GetWorkspaceFiles(b, path)
+	}
+
+	if err != nil {
+		log.Println("Get failed with", err)
+		utils.WriteResponse(w, 400, []byte("Workspace could not be copied"))
+	} else {
+		utils.WriteResponse(w, 200, []byte("Workspace copied"))
 	}
 
 	ch.Emit("subscribe", info)
 }
 
-// Compile files if necessary
-func buildRequest(w http.ResponseWriter, r *http.Request) {
-	path := utils.GetPathFromRequest(r)
+func build(w http.ResponseWriter, body []byte) {
+	path := utils.GetPathFromBody(body)
 
 	log.Println("Build request for workspace", path)
 
@@ -55,15 +60,14 @@ func buildRequest(w http.ResponseWriter, r *http.Request) {
 	err := cmd.Run()
 	if err != nil {
 		log.Println("Build failed with", err)
-		utils.WriteResponse(w, 400, e.Bytes())
+		utils.WriteResponse(w, 400, append([]byte("Build\n"), e.Bytes()...))
 	} else {
-		utils.WriteResponse(w, 200, e.Bytes())
+		utils.WriteResponse(w, 200, append([]byte("Build\n"), e.Bytes()...))
 	}
 }
 
-// Runs the project in a workspace
-func runRequest(w http.ResponseWriter, r *http.Request) {
-	path := utils.GetPathFromRequest(r)
+func run(w http.ResponseWriter, body []byte) {
+	path := utils.GetPathFromBody(body)
 
 	log.Println("Run request for workspace", path)
 
@@ -78,15 +82,14 @@ func runRequest(w http.ResponseWriter, r *http.Request) {
 	err := cmd.Run()
 	if err != nil {
 		log.Println("Run failed with", err)
-		utils.WriteResponse(w, 400, e.Bytes())
+		utils.WriteResponse(w, 400, append([]byte("Run\n"), e.Bytes()...))
 	} else {
-		utils.WriteResponse(w, 200, o.Bytes())
+		utils.WriteResponse(w, 200, append([]byte("Run\n"), o.Bytes()...))
 	}
 }
 
-// Cleans the project in a workspace
-func cleanRequest(w http.ResponseWriter, r *http.Request) {
-	path := utils.GetPathFromRequest(r)
+func clean(w http.ResponseWriter, body []byte) {
+	path := utils.GetPathFromBody(body)
 
 	log.Println("Clean request for workspace", path)
 
@@ -101,17 +104,18 @@ func cleanRequest(w http.ResponseWriter, r *http.Request) {
 	err := cmd.Run()
 	if err != nil {
 		log.Println("Clean failed with", err)
-		utils.WriteResponse(w, 400, e.Bytes())
+		utils.WriteResponse(w, 400, append([]byte("Clean\n"), e.Bytes()...))
 	} else {
-		utils.WriteResponse(w, 200, o.Bytes())
+		utils.WriteResponse(w, 200, append([]byte("Clean\n"), o.Bytes()...))
 	}
 }
 
-// Deletes the workspace folder
-func clearRequest(w http.ResponseWriter, r *http.Request) {
-	path := utils.GetPathFromRequest(r)
+func clear(w http.ResponseWriter, body []byte) {
+	path := utils.GetPathFromBody(body)
 
 	err := os.RemoveAll(path)
+
+	log.Println("Clear request for workspace", path)
 
 	if err != nil {
 		log.Println("Run failed with", err)
@@ -119,6 +123,41 @@ func clearRequest(w http.ResponseWriter, r *http.Request) {
 	} else {
 		utils.WriteResponse(w, 200, []byte("Workspace deleted"))
 	}
+}
+
+// Get the workspace from io microservice
+func getRequest(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	get(w, body)
+}
+
+// Compile files if necessary
+func buildRequest(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	build(w, body)
+}
+
+// Runs the project in a workspace
+func runRequest(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	run(w, body)
+}
+
+// Cleans the project in a workspace
+func cleanRequest(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	clean(w, body)
+}
+
+// Deletes the workspace folder
+func clearRequest(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	clear(w, body)
 }
 
 // Run a specific test

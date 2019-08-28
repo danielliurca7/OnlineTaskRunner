@@ -13,6 +13,8 @@
 </template>
 
 <script>
+import axios from "axios";
+
 import { mapGetters } from "vuex";
 
 import { codemirror } from "vue-codemirror";
@@ -27,12 +29,15 @@ export default {
   components: {
     codemirror
   },
-  props: ['file'],
+  props: ["file", "height"],
   watch: {
-    file: function(newVal, oldVal) {
-      this.code_loaded = true;      
+    file: function(newVal) {
+      this.code_loaded = true;
       this.code = newVal.data;
       this.$socket.emit("watch", newVal.info);
+    },
+    height: function(height) {
+      this.codemirror.setSize("100%", height + "px");
     }
   },
   data() {
@@ -64,8 +69,6 @@ export default {
     }
   },
   mounted() {
-    this.codemirror.setSize("100%", "51.2em");
-
     this.$options.sockets.change = ch => {
       if (ch.Fileinfo.Owner != this.getUsername) {
         var last = [];
@@ -111,8 +114,6 @@ export default {
           }
         }
 
-        console.log(i, start, end, end_ch);
-
         if (i > start && i < end) {
           var lines = this.code.split("\n").map(x => x.length);
           var s = 0,
@@ -122,30 +123,23 @@ export default {
           for (j = 0; j < lines.length; j++) {
             s += lines[j] + 1;
 
-            console.log(j, s, lines);
-
             if (s > start) {
               s -= lines[j] + 1;
               line = j;
-              console.log(start, s);
               char = start - s;
               break;
             }
           }
 
-          console.log(line, char);
-
           this.cursor_pos = {
             line: line,
             ch: char
           };
-        } else if (i >= start) {
+        } else if (i > start) {
           var lines_current = ch.Change.Current.split("\n");
           var lines_previous = ch.Change.Previous.split("\n");
 
           var line_difference = lines_current.length - lines_previous.length;
-
-          console.log(lines_current, lines_previous);
 
           var ch_difference = 0;
 
@@ -174,8 +168,35 @@ export default {
         this.received = true;
       }
     };
+
+    axios
+      .post("http://localhost:8000/api/get", {
+        owner: this.getUsername,
+        subject: "APD",
+        assignmentname: "Tema de smecherie",
+        year: 2019
+      })
+      .then(response => {
+        console.log(response.data);
+      })
+      .catch(error => {
+        console.log(error);
+      });
   },
   beforeDestroy() {
+    axios
+      .post("http://localhost:8000/api/clear", {
+        owner: this.getUsername,
+        subject: "APD",
+        assignmentname: "Tema de smecherie",
+        year: 2019
+      })
+      .then(response => {
+        console.log(response.data);
+      })
+      .catch(error => {
+        console.log(error);
+      });
   },
   methods: {
     onCmCodeChange() {
@@ -214,17 +235,6 @@ export default {
       b = b.slice(0, j + 1);
 
       this.last_code = this.code;
-
-      console.log({
-        fileinfo: this.file.info,
-        change: {
-          position: start,
-          current: a,
-          previous: b
-        }
-      });
-
-      console.log(this.code_loaded)
 
       if (!this.code_loaded) {
         this.$socket.emit("change", {

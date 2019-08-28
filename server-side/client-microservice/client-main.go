@@ -75,6 +75,19 @@ func verifyConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 // Make a request to the compute microservice
+// To get the workspace files
+func getRequest(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	log.Println("Get request for workspace ", string(body))
+
+	// Make a request to the compute microservice
+	response, err := utils.MakeRequest("http://localhost:8001/api/get", "GET", body)
+
+	utils.ForwardResponse(w, response, err)
+}
+
+// Make a request to the compute microservice
 // To compile a workspace if necessary
 func buildRequest(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
@@ -206,7 +219,7 @@ func main() {
 	})
 
 	server.On("subscribe", func(c *gosocketio.Channel, f fileinfo.Fileinfo) {
-		log.Println("subscribe", f)
+		log.Println("subscribe", utils.GetPath(f))
 
 		c.Join(utils.GetPath(f))
 	})
@@ -223,15 +236,16 @@ func main() {
 
 	r.HandleFunc("/api/file", createFile).Methods("POST")
 	r.HandleFunc("/api/file", renameFile).Methods("PUT")
-	r.HandleFunc("/api/file", deleteFile).Methods("DELETE")
+	r.HandleFunc("/api/delete", deleteFile).Methods("POST")
 	r.HandleFunc("/api/file", verifyConnection).Methods("GET")
 
 	r.HandleFunc("/api/filetree", getFileTree).Methods("POST")
 
-	r.HandleFunc("/api/request", buildRequest).Methods("PUT")
-	r.HandleFunc("/api/request", runRequest).Methods("POST")
-	r.HandleFunc("/api/request", cleanRequest).Methods("PATCH")
-	r.HandleFunc("/api/request", clearRequest).Methods("DELETE")
+	r.HandleFunc("/api/get", getRequest).Methods("POST")
+	r.HandleFunc("/api/build", buildRequest).Methods("POST")
+	r.HandleFunc("/api/run", runRequest).Methods("POST")
+	r.HandleFunc("/api/clean", cleanRequest).Methods("POST")
+	r.HandleFunc("/api/clear", clearRequest).Methods("POST")
 
 	r.HandleFunc("/api/test", createCustomTest).Methods("POST")
 	r.HandleFunc("/api/build", editBuild).Methods("PUT")

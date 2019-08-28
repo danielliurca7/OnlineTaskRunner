@@ -103,9 +103,7 @@ func GetWorkspaceHash(w workspace.Workspace) string {
 	return string(bytes)
 }
 
-func GetPathFromRequest(r *http.Request) string {
-	body := GetRequestBody(r)
-
+func GetPathFromBody(body []byte) string {
 	var workspace workspace.Workspace
 	json.Unmarshal(body, &workspace)
 
@@ -115,9 +113,7 @@ func GetPathFromRequest(r *http.Request) string {
 	return path
 }
 
-func GetFileinfoFromRequest(r *http.Request) fileinfo.Fileinfo {
-	body := GetRequestBody(r)
-
+func GetFileinfoFromBody(body []byte) fileinfo.Fileinfo {
 	var fileinfo fileinfo.Fileinfo
 	json.Unmarshal(body, &fileinfo)
 
@@ -131,12 +127,11 @@ func GetPath(fi fileinfo.Fileinfo) string {
 	return filepath.Join(extPath, intPath)
 }
 
-func GetWorkspaceFiles(workspace []byte, path string) {
+func GetWorkspaceFiles(workspace []byte, path string) error {
 	response, err := MakeRequest("http://localhost:8002/api/workspace", "GET", workspace)
 
 	if err != nil {
-		log.Printf("The HTTP request failed with error %s\n", err)
-		return
+		return err
 	}
 
 	body := GetResponseBody(response)
@@ -147,7 +142,7 @@ func GetWorkspaceFiles(workspace []byte, path string) {
 
 	err = os.Mkdir(path, 0666)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
 
 	for _, file := range files {
@@ -156,15 +151,17 @@ func GetWorkspaceFiles(workspace []byte, path string) {
 		if file.IsDir {
 			err = os.Mkdir(filepath, 0666)
 			if err != nil {
-				log.Println(err)
+				return err
 			}
 		} else {
 			err = ioutil.WriteFile(filepath, []byte(file.Data), 0666)
 			if err != nil {
-				log.Println(err)
+				return err
 			}
 		}
 	}
+
+	return nil
 }
 
 func ApplyChange(data []byte, c change.Change) []byte {
