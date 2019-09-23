@@ -1,8 +1,8 @@
 package workspace
 
 type Workspace struct {
-	Owner string
-	Subject string
+	Owner          string
+	Subject        string
 	AssignmentName string
-	Year int
+	Year           int
 }

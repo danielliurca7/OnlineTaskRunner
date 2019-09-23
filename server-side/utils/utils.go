@@ -128,7 +128,7 @@ func GetPath(fi fileinfo.Fileinfo) string {
 }
 
 func GetWorkspaceFiles(workspace []byte, path string) error {
-	response, err := MakeRequest("http://localhost:8002/api/workspace", "GET", workspace)
+	response, err := MakeRequest("http://localhost:10000/api/workspace", "POST", workspace)
 
 	if err != nil {
 		return err

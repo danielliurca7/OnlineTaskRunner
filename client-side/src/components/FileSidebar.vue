@@ -154,7 +154,7 @@ export default {
           };
 
           axios
-            .post("http://localhost:8002/api/get", request)
+            .post("http://localhost:10000/api/get", request)
             .then(response => {
               this.$emit("load_file", {
                 info: request,
@@ -187,7 +187,7 @@ export default {
               path: object.data.path
             })
             .then(response => {
-             if (response.status === 200) {
+              if (response.status === 200) {
                 axios
                   .post("http://localhost:8000/api/filetree", {
                     owner: this.getUsername,

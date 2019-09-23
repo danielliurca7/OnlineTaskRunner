@@ -1,17 +1,18 @@
 package containers
 
 import (
-	"../fileinfo"
 	"../change"
-	"../changes"
+	"../file"
+	"../fileinfo"
+	"../workspace"
 )
 
 type OneChangeContainer struct {
 	Fileinfo fileinfo.Fileinfo
-	Change change.Change
+	Change   change.Change
 }
 
-type MultipleChangesContainer struct {
-	Fileinfo fileinfo.Fileinfo
-	Changes changes.Changes
+type WorkspaceContainer struct {
+	Workspace workspace.Workspace
+	Files     []file.File
 }

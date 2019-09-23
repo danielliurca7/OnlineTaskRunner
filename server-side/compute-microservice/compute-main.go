@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 
 	"github.com/gorilla/mux"
-	gosocketio "github.com/graarh/golang-socketio"
-	"github.com/graarh/golang-socketio/transport"
 
 	"../data_structures/containers"
 	"../utils"
@@ -40,8 +38,6 @@ func get(w http.ResponseWriter, body []byte) {
 	} else {
 		utils.WriteResponse(w, 200, []byte("Workspace copied"))
 	}
-
-	ch.Emit("subscribe", info)
 }
 
 func build(w http.ResponseWriter, body []byte) {
@@ -49,12 +45,15 @@ func build(w http.ResponseWriter, body []byte) {
 
 	log.Println("Build request for workspace", path)
 
+	imageName := "my-run"
+	dockerfilePath := "./compute-microservice/Dockerfile"
+
 	// Format the make build command
-	cmd := exec.Command("make", "build")
+	cmd := exec.Command("cmd", "/C", "docker build", ".", "-t", imageName, "-f", dockerfilePath)
 	var o, e bytes.Buffer
 	cmd.Stdout = &o
 	cmd.Stderr = &e
-	cmd.Dir = path
+	//cmd.Dir = path
 
 	// Run the command
 	err := cmd.Run()
@@ -62,7 +61,11 @@ func build(w http.ResponseWriter, body []byte) {
 		log.Println("Build failed with", err)
 		utils.WriteResponse(w, 400, append([]byte("Build\n"), e.Bytes()...))
 	} else {
-		utils.WriteResponse(w, 200, append([]byte("Build\n"), e.Bytes()...))
+		if len([]byte(e.Bytes())) == 0 {
+			utils.WriteResponse(w, 200, []byte("Build successful"))
+		} else {
+			utils.WriteResponse(w, 200, append([]byte("Build\n"), e.Bytes()...))
+		}
 	}
 }
 
@@ -180,26 +183,7 @@ func registerChange(c containers.OneChangeContainer) {
 	utils.CheckError(err)
 }
 
-var ch *gosocketio.Channel
-
 func main() {
-	c, err := gosocketio.Dial(
-		gosocketio.GetUrl("localhost", 8000, false),
-		transport.GetDefaultWebsocketTransport())
-	utils.CheckError(err)
-
-	defer c.Close()
-
-	err = c.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
-		ch = c
-	})
-	utils.CheckError(err)
-
-	err = c.On("change", func(h *gosocketio.Channel, c containers.OneChangeContainer) {
-		registerChange(c)
-	})
-	utils.CheckError(err)
-
 	r := mux.NewRouter()
 
 	r.HandleFunc("/api/get", getRequest).Methods("GET")
@@ -208,5 +192,5 @@ func main() {
 	r.HandleFunc("/api/clean", cleanRequest).Methods("DELETE")
 	r.HandleFunc("/api/clear", clearRequest).Methods("DELETE")
 
-	log.Fatal(http.ListenAndServe(":8001", r))
+	log.Fatal(http.ListenAndServe(":7000", r))
 }

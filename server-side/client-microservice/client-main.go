@@ -4,54 +4,163 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"path/filepath"
 
-	"../data_structures/change"
-	"../data_structures/changes"
 	"../data_structures/containers"
+	"../data_structures/file"
 	"../data_structures/fileinfo"
+	"../data_structures/token"
+	"../data_structures/user"
+	"../data_structures/workspace"
 	"../utils"
+
+	"github.com/go-redis/redis"
 	"github.com/gorilla/mux"
-	gosocketio "github.com/graarh/golang-socketio"
-	"github.com/graarh/golang-socketio/transport"
+	//"github.com/dgrijalva/jwt-go"
 )
 
-const bufSize = 5
+var tokens = make(map[string]string)
+var redisClient *redis.Client
 
-// Changes is a
-var Changes []changes.Changes
+func authenticate(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	var user user.User
+	json.Unmarshal(body, &user)
+
+	log.Println("Authenticate request for user", user.Username)
+
+	// Make a request to the io microservice
+	response, err := utils.MakeRequest("http://localhost:9000/api/authenticate", "POST", body)
+	utils.CheckError(err)
+
+	data := utils.GetResponseBody(response)
+
+	var token token.Token
+	json.Unmarshal(data, &token)
+
+	tokens[token.Token] = token.PrivateToken
+
+	utils.WriteResponse(w, 200, data)
+}
 
 // Sends request to create the file with the specified name
 func createFile(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	log.Println("Create file request")
+	fi := utils.GetFileinfoFromBody(body)
 
-	// Make a request to the io microservice
-	response, err := utils.MakeRequest("http://localhost:8002/api/file", "POST", body)
+	log.Println("Create file request for", utils.GetPath(fi))
 
-	utils.ForwardResponse(w, response, err)
+	key := utils.GetWorkspaceHash(fi.Workspace)
+
+	val, err := redisClient.Get(key).Result()
+	utils.CheckError(err)
+
+	var files []file.File
+	json.Unmarshal([]byte(val), &files)
+
+	files = append(files, file.File{
+		Path:  filepath.Join(fi.Path...),
+		Data:  "",
+		IsDir: false,
+	})
+
+	b, err := json.Marshal(files)
+	utils.CheckError(err)
+
+	err = redisClient.Set(key, b, 0).Err()
+	utils.CheckError(err)
+
+	utils.WriteResponse(w, 200, []byte("File created"))
+}
+
+// Sends request to create the folder with the specified name
+func createFolder(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	fi := utils.GetFileinfoFromBody(body)
+
+	log.Println("Create file request for", utils.GetPath(fi))
+
+	key := utils.GetWorkspaceHash(fi.Workspace)
+
+	val, err := redisClient.Get(key).Result()
+	utils.CheckError(err)
+
+	var files []file.File
+	json.Unmarshal([]byte(val), &files)
+
+	files = append(files, file.File{
+		Path:  filepath.Join(fi.Path...),
+		Data:  "",
+		IsDir: true,
+	})
+
+	b, err := json.Marshal(files)
+	utils.CheckError(err)
+
+	err = redisClient.Set(key, b, 0).Err()
+	utils.CheckError(err)
+
+	utils.WriteResponse(w, 200, []byte("Folder created"))
 }
 
 // Sends request to rename the file with the specified name
 func renameFile(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	log.Println("Rename file request")
+	var fis []fileinfo.Fileinfo
+	json.Unmarshal(body, &fis)
 
-	// Make a request to the io microservice
-	response, err := utils.MakeRequest("http://localhost:8002/api/file", "PUT", body)
+	log.Println("Rename file request from", utils.GetPath(fis[0]),
+		"to", utils.GetPath(fis[1]))
 
-	utils.ForwardResponse(w, response, err)
+	key := utils.GetWorkspaceHash(fis[0].Workspace)
+
+	val, err := redisClient.Get(key).Result()
+	utils.CheckError(err)
+
+	var files []file.File
+	json.Unmarshal([]byte(val), &files)
+
+	path := filepath.Join(fis[0].Path...)
+
+	for i, v := range files {
+		if path == v.Path {
+			files[i].Path = filepath.Join(fis[1].Path...)
+			break
+		}
+	}
+
+	b, err := json.Marshal(files)
+	utils.CheckError(err)
+
+	err = redisClient.Set(key, b, 0).Err()
+	utils.CheckError(err)
+
+	utils.WriteResponse(w, 200, []byte("File renamed"))
 }
 
 // Sends request to delete the file with the specified name
 func deleteFile(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	log.Println("Delete file request", string(body))
+	log.Println("Delete file request", utils.GetPath(utils.GetFileinfoFromBody(body)))
 
 	// Make a request to the io microservice
-	response, err := utils.MakeRequest("http://localhost:8002/api/file", "DELETE", body)
+	response, err := utils.MakeRequest("http://localhost:10000/api/delete", "POST", body)
+
+	utils.ForwardResponse(w, response, err)
+}
+
+func registerChange(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	log.Println("Get file tree request", string(body))
+
+	// Make a request to the cache microservice
+	response, err := utils.MakeRequest("http://localhost:7000/api/filetree", "POST", body)
 
 	utils.ForwardResponse(w, response, err)
 }
@@ -62,7 +171,7 @@ func getFileTree(w http.ResponseWriter, r *http.Request) {
 	log.Println("Get file tree request", string(body))
 
 	// Make a request to the io microservice
-	response, err := utils.MakeRequest("http://localhost:8002/api/filetree", "GET", body)
+	response, err := utils.MakeRequest("http://localhost:10000/api/filetree", "POST", body)
 
 	utils.ForwardResponse(w, response, err)
 }
@@ -79,12 +188,23 @@ func verifyConnection(w http.ResponseWriter, r *http.Request) {
 func getRequest(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
+	var ws workspace.Workspace
+	json.Unmarshal(body, &ws)
+
 	log.Println("Get request for workspace ", string(body))
 
-	// Make a request to the compute microservice
-	response, err := utils.MakeRequest("http://localhost:8001/api/get", "GET", body)
+	key := utils.GetWorkspaceHash(ws)
 
-	utils.ForwardResponse(w, response, err)
+	_, err := redisClient.Get(key).Result()
+
+	if err != nil {
+		response, err := utils.MakeRequest("http://localhost:10000/api/workspace", "POST", body)
+
+		b := utils.GetResponseBody(response)
+
+		err = redisClient.Set(key, b, 0).Err()
+		utils.CheckError(err)
+	}
 }
 
 // Make a request to the compute microservice
@@ -131,114 +251,68 @@ func cleanRequest(w http.ResponseWriter, r *http.Request) {
 func clearRequest(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	log.Println("Clear request for workspace", string(body))
+	var ws workspace.Workspace
+	json.Unmarshal(body, &ws)
 
-	// Make a request to the compute microservice
-	response, err := utils.MakeRequest("http://localhost:8001/api/clear", "DELETE", body)
+	log.Println("Clear request for", ws)
+
+	key := utils.GetWorkspaceHash(ws)
+
+	val, err := redisClient.Get(key).Result()
+
+	var c containers.WorkspaceContainer
+
+	c.Workspace = ws
+	json.Unmarshal([]byte(val), &c.Files)
+
+	b, err := json.Marshal(c)
+
+	response, err := utils.MakeRequest("http://localhost:10000/api/update", "POST", b)
+
+	err = redisClient.Del(key).Err()
+	utils.CheckError(err)
 
 	utils.ForwardResponse(w, response, err)
 }
 
-// Creates a custom test for a certain workspace
-func createCustomTest(w http.ResponseWriter, r *http.Request) {
-
-}
-
-// Edits the build file
-func editBuild(w http.ResponseWriter, r *http.Request) {
-
-}
-
-// Edits a task file
-func editTasks(w http.ResponseWriter, r *http.Request) {
-
-}
-
-// Edits the docker image
-func editDockerImage(w http.ResponseWriter, r *http.Request) {
-
-}
-
-// Register if the client wrote some code
-// Update the buffer and notify observers
-func registerChange(h *gosocketio.Channel, c containers.OneChangeContainer) {
-	h.BroadcastTo(utils.GetPath(c.Fileinfo), "change", c)
-
-	i, changeList := utils.GetFileChanges(Changes, c.Fileinfo)
-
-	if i == -1 {
-		Changes = append(Changes, changes.Changes{
-			Fileinfo: c.Fileinfo,
-			Changes:  []change.Change{c.Change},
-		})
-	} else {
-		changeList.Changes = append(changeList.Changes, c.Change)
-
-		if len(changeList.Changes) >= bufSize {
-			//commit changes to io microservice
-			b, err := json.Marshal(changeList)
-			utils.CheckError(err)
-
-			_, err = utils.MakeRequest("http://localhost:8002/api/file", "PATCH", b)
-			utils.CheckError(err)
-
-			//log.Println(response)
-
-			changeList.Changes = nil
-		}
-
-		Changes = append(
-			append(Changes[:i], changeList),
-			Changes[i+1:]...,
-		)
-	}
-}
-
-var ch *gosocketio.Channel
-
 func main() {
-	server := gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
-
-	server.On(gosocketio.OnDisconnection, func(c *gosocketio.Channel) {
-		log.Println("Disconnected")
+	redisClient = redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
 	})
 
-	server.On(gosocketio.OnConnection, func(c *gosocketio.Channel) {
-		log.Println("Connected")
-		ch = c
-	})
+	/*err := redisClient.Set("key", "value1", 0).Err()
+	utils.CheckError(err)
 
-	server.On("watch", func(c *gosocketio.Channel, f fileinfo.Fileinfo) {
-		b, err := json.Marshal(f)
-		utils.CheckError(err)
+	val, err := redisClient.Get("key").Result()
+	utils.CheckError(err)
+	log.Println("key", val)
 
-		_, err = utils.MakeRequest("http://localhost:8001/api/get", "GET", b)
-		utils.CheckError(err)
+	err = redisClient.Set("key", "value2", 0).Err()
+	utils.CheckError(err)
 
-		c.Join(utils.GetPath(f))
-	})
+	val, err = redisClient.Get("key").Result()
+	utils.CheckError(err)
+	log.Println("key", val)
 
-	server.On("subscribe", func(c *gosocketio.Channel, f fileinfo.Fileinfo) {
-		log.Println("subscribe", utils.GetPath(f))
+	err = redisClient.Del("key").Err()
+	utils.CheckError(err)
 
-		c.Join(utils.GetPath(f))
-	})
-
-	server.On("unsubscribe", func(c *gosocketio.Channel, f fileinfo.Fileinfo) {
-		c.Leave(utils.GetPath(f))
-	})
-
-	server.On("change", registerChange)
+	val, err = redisClient.Get("key").Result()
+	utils.CheckError(err)
+	log.Println("key", val)*/
 
 	r := mux.NewRouter()
 
-	r.Handle("/socket.io/", server)
+	r.HandleFunc("/api/authenticate", authenticate).Methods("POST")
 
-	r.HandleFunc("/api/file", createFile).Methods("POST")
-	r.HandleFunc("/api/file", renameFile).Methods("PUT")
+	r.HandleFunc("/api/create_file", createFile).Methods("POST")
+	r.HandleFunc("/api/create_folder", createFolder).Methods("POST")
+	r.HandleFunc("/api/rename", renameFile).Methods("POST")
 	r.HandleFunc("/api/delete", deleteFile).Methods("POST")
 	r.HandleFunc("/api/file", verifyConnection).Methods("GET")
 
+	r.HandleFunc("/api/change", registerChange).Methods("POST")
 	r.HandleFunc("/api/filetree", getFileTree).Methods("POST")
 
 	r.HandleFunc("/api/get", getRequest).Methods("POST")
@@ -247,10 +321,5 @@ func main() {
 	r.HandleFunc("/api/clean", cleanRequest).Methods("POST")
 	r.HandleFunc("/api/clear", clearRequest).Methods("POST")
 
-	r.HandleFunc("/api/test", createCustomTest).Methods("POST")
-	r.HandleFunc("/api/build", editBuild).Methods("PUT")
-	r.HandleFunc("/api/tasks", editTasks).Methods("PUT")
-	r.HandleFunc("/api/image", editDockerImage).Methods("PUT")
-
-	log.Fatal(http.ListenAndServe(":8000", r))
+	log.Fatal(http.ListenAndServe(":6000", r))
 }

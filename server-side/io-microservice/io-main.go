@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"../data_structures/changes"
+	"../data_structures/containers"
 	"../data_structures/file"
 	"../data_structures/fileinfo"
 	"../data_structures/tree"
@@ -50,6 +50,45 @@ func createFile(w http.ResponseWriter, r *http.Request) {
 
 	if utils.FileExists(path) {
 		utils.WriteResponse(w, 400, []byte("File already exists at specified path"))
+	} else {
+		file, err := os.Create(path)
+
+		defer file.Close()
+
+		if err != nil {
+			log.Println(err.Error())
+			utils.WriteResponse(w, 500, []byte("File could not be created"))
+			return
+		}
+
+		utils.WriteResponse(w, 200, []byte("File created"))
+	}
+}
+
+func createFolder(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
+
+	var fi fileinfo.Fileinfo
+	json.Unmarshal(body, &fi)
+
+	path := utils.GetPath(fi)
+
+	log.Println("Create folder request for path " + path)
+
+	path = filepath.Join(fileSystem, path)
+
+	if !utils.FileExists(path) {
+		err := os.MkdirAll(path, os.ModeDir)
+
+		if err != nil {
+			log.Println(err)
+			utils.WriteResponse(w, 500, []byte("Folder could not be created"))
+			return
+		}
+	}
+
+	if utils.FileExists(path) {
+		utils.WriteResponse(w, 400, []byte("Folder already exists at specified path"))
 	} else {
 		file, err := os.Create(path)
 
@@ -271,35 +310,36 @@ func getWorkSpace(w http.ResponseWriter, r *http.Request) {
 func updateFiles(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	var changesList changes.Changes
-	json.Unmarshal(body, &changesList)
+	var c containers.WorkspaceContainer
+	json.Unmarshal(body, &c)
 
-	log.Println("Update file request for", utils.GetPath(changesList.Fileinfo))
+	workspace := utils.GetWorkspace(c.Workspace)
 
-	path := filepath.Join(fileSystem, utils.GetPath(changesList.Fileinfo))
+	log.Println("Update workspace request for", workspace)
 
-	data, err := ioutil.ReadFile(path)
-	utils.CheckError(err)
+	for _, v := range c.Files {
+		file := filepath.Join(workspace, filepath.Join(v.Path))
+		path := filepath.Join(fileSystem, file)
 
-	for _, change := range changesList.Changes {
-		data = utils.ApplyChange(data, change)
+		if !v.IsDir {
+			err := ioutil.WriteFile(path, []byte(v.Data), 0666)
+			utils.CheckError(err)
+		}
 	}
-
-	err = ioutil.WriteFile(path, data, 0666)
-	utils.CheckError(err)
 }
 
 func main() {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/api/file", createFile).Methods("POST")
-	r.HandleFunc("/api/file", renameFile).Methods("PUT")
-	r.HandleFunc("/api/file", deleteFile).Methods("DELETE")
+	r.HandleFunc("/api/create_file", createFile).Methods("POST")
+	r.HandleFunc("/api/create_folder", createFolder).Methods("POST")
+	r.HandleFunc("/api/rename", renameFile).Methods("POST")
+	r.HandleFunc("/api/delete", deleteFile).Methods("POST")
 	r.HandleFunc("/api/get", getFile).Methods("POST")
-	r.HandleFunc("/api/file", updateFiles).Methods("PATCH")
+	r.HandleFunc("/api/update", updateFiles).Methods("POST")
 
-	r.HandleFunc("/api/filetree", getFileTree).Methods("GET")
-	r.HandleFunc("/api/workspace", getWorkSpace).Methods("GET")
+	r.HandleFunc("/api/filetree", getFileTree).Methods("POST")
+	r.HandleFunc("/api/workspace", getWorkSpace).Methods("POST")
 
-	log.Fatal(http.ListenAndServe(":8002", r))
+	log.Fatal(http.ListenAndServe(":10000", r))
 }

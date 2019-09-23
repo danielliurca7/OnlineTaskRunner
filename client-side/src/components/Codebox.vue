@@ -32,9 +32,8 @@ export default {
   props: ["file", "height"],
   watch: {
     file: function(newVal) {
-      this.code_loaded = true;
       this.code = newVal.data;
-      this.$socket.emit("watch", newVal.info);
+      this.last_code = this.code;
     },
     height: function(height) {
       this.codemirror.setSize("100%", height + "px");
@@ -69,106 +68,6 @@ export default {
     }
   },
   mounted() {
-    this.$options.sockets.change = ch => {
-      if (ch.Fileinfo.Owner != this.getUsername) {
-        var last = [];
-
-        var start = ch.Change.Position;
-        var end = ch.Change.Position + ch.Change.Previous.length;
-
-        if (this.code.length >= end) {
-          last = this.code.slice(end, this.code.length);
-        }
-
-        var cursor_pos = {
-            line: this.codemirror.doc.getCursor().line,
-            ch: this.codemirror.doc.getCursor().ch
-          },
-          i = 0,
-          start_ch = 0,
-          end_ch = 0;
-
-        while (cursor_pos.ch >= 0) {
-          i++;
-
-          if (cursor_pos.line === 0) {
-            cursor_pos.ch--;
-          }
-
-          if (this.code[i] === "\n") {
-            cursor_pos.line--;
-          }
-        }
-
-        for (var j = start; j > 0; j--) {
-          if (this.code[j] === "\n") {
-            start_ch = start - j - 1;
-            break;
-          }
-        }
-
-        for (j = end; j < this.code.length; j++) {
-          if (this.code[j] === "\n") {
-            end_ch = j;
-            break;
-          }
-        }
-
-        if (i > start && i < end) {
-          var lines = this.code.split("\n").map(x => x.length);
-          var s = 0,
-            line,
-            char;
-
-          for (j = 0; j < lines.length; j++) {
-            s += lines[j] + 1;
-
-            if (s > start) {
-              s -= lines[j] + 1;
-              line = j;
-              char = start - s;
-              break;
-            }
-          }
-
-          this.cursor_pos = {
-            line: line,
-            ch: char
-          };
-        } else if (i > start) {
-          var lines_current = ch.Change.Current.split("\n");
-          var lines_previous = ch.Change.Previous.split("\n");
-
-          var line_difference = lines_current.length - lines_previous.length;
-
-          var ch_difference = 0;
-
-          if (i <= end_ch) {
-            ch_difference =
-              lines_current[lines_current.length - 1].length -
-              lines_previous[lines_previous.length - 1].length;
-
-            if (lines_current.length === 1) {
-              ch_difference += start_ch;
-            }
-
-            if (lines_previous.length === 1) {
-              ch_difference -= start_ch;
-            }
-          }
-
-          this.cursor_pos = {
-            line: this.codemirror.doc.getCursor().line + line_difference,
-            ch: this.codemirror.doc.getCursor().ch + ch_difference
-          };
-        }
-
-        this.code = this.code.slice(0, start) + ch.Change.Current + last;
-        this.last_code = this.code;
-        this.received = true;
-      }
-    };
-
     axios
       .post("http://localhost:8000/api/get", {
         owner: this.getUsername,
@@ -236,18 +135,21 @@ export default {
 
       this.last_code = this.code;
 
-      if (!this.code_loaded) {
-        this.$socket.emit("change", {
+      axios
+        .post("http://localhost:8000/api/change", {
           fileinfo: this.file.info,
           change: {
             position: start,
             current: a,
             previous: b
           }
+        })
+        .then(response => {
+          //console.log(response)
+        })
+        .catch(error => {
+          console.log(error);
         });
-      } else {
-        this.code_loaded = false;
-      }
     },
     onCursorActivity() {
       if (!this.received) {
