@@ -19,6 +19,7 @@ import (
 	"../data_structures/workspace"
 )
 
+//const Tmp = "/tmp"
 const Tmp = "D:\\Projects\\OnlineTaskRunner\\server-side\\tmp"
 
 func CheckError(err error) {
@@ -108,9 +109,8 @@ func GetPathFromBody(body []byte) string {
 	json.Unmarshal(body, &workspace)
 
 	dir := GetWorkspaceHash(workspace)
-	path := filepath.Join(Tmp, dir)
 
-	return path
+	return dir
 }
 
 func GetFileinfoFromBody(body []byte) fileinfo.Fileinfo {
@@ -118,13 +118,6 @@ func GetFileinfoFromBody(body []byte) fileinfo.Fileinfo {
 	json.Unmarshal(body, &fileinfo)
 
 	return fileinfo
-}
-
-func GetPath(fi fileinfo.Fileinfo) string {
-	extPath := filepath.Join(fi.Subject, strconv.Itoa(fi.Year), fi.AssignmentName, fi.Owner)
-	intPath := filepath.Join(fi.Path...)
-
-	return filepath.Join(extPath, intPath)
 }
 
 func GetWorkspaceFiles(workspace []byte, path string) error {
@@ -146,7 +139,7 @@ func GetWorkspaceFiles(workspace []byte, path string) error {
 	}
 
 	for _, file := range files {
-		filepath := filepath.Join(path, file.Path)
+		filepath := filepath.Join(path, filepath.Join(file.Path...))
 
 		if file.IsDir {
 			err = os.Mkdir(filepath, 0666)
@@ -164,7 +157,9 @@ func GetWorkspaceFiles(workspace []byte, path string) error {
 	return nil
 }
 
-func ApplyChange(data []byte, c change.Change) []byte {
+func ApplyChange(content string, c change.Change) string {
+	data := []byte(content)
+
 	var start, end int64
 	var last []byte
 
@@ -176,5 +171,5 @@ func ApplyChange(data []byte, c change.Change) []byte {
 		copy(last, data[end:])
 	}
 
-	return append(append(data[:start], []byte(c.Current)...), last...)
+	return string(append(append(data[:start], []byte(c.Current)...), last...))
 }

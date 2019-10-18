@@ -6,10 +6,10 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 
 	"log"
 	"net/http"
-	"path/filepath"
 
 	"github.com/gorilla/mux"
 
@@ -17,46 +17,53 @@ import (
 	"../utils"
 )
 
-func get(w http.ResponseWriter, body []byte) {
-	info := utils.GetFileinfoFromBody(body)
-
-	b, err := json.Marshal(info.Workspace)
+func get(bytes []byte) containers.WorkspaceContainer {
+	response, err := utils.MakeRequest("http://localhost:7000/api/workspace", "POST", bytes)
 	utils.CheckError(err)
 
-	dir := utils.GetWorkspaceHash(info.Workspace)
-	path := filepath.Join(utils.Tmp, dir)
+	bytes = utils.GetResponseBody(response)
 
-	log.Println("Get request for workspace", path)
+	var c containers.WorkspaceContainer
+	json.Unmarshal(bytes, &c)
 
-	if _, err = os.Stat(path); os.IsNotExist(err) {
-		err = utils.GetWorkspaceFiles(b, path)
-	}
-
-	if err != nil {
-		log.Println("Get failed with", err)
-		utils.WriteResponse(w, 400, []byte("Workspace could not be copied"))
-	} else {
-		utils.WriteResponse(w, 200, []byte("Workspace copied"))
-	}
+	return c
 }
 
-func build(w http.ResponseWriter, body []byte) {
-	path := utils.GetPathFromBody(body)
+func build(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
 
-	log.Println("Build request for workspace", path)
+	files := get(body)
 
-	imageName := "my-run"
-	dockerfilePath := "./compute-microservice/Dockerfile"
+	imageName := utils.GetPathFromBody(body)
+	p := filepath.Join(utils.Tmp, imageName)
+
+	err := os.MkdirAll(p, 0666)
+	utils.CheckError(err)
+
+	for _, v := range files.Files {
+		path := filepath.Join(p, filepath.Join(v.Path...))
+
+		if !v.IsDir {
+			err := ioutil.WriteFile(path, []byte(v.Data), 0666)
+			utils.CheckError(err)
+		} else {
+			err := os.MkdirAll(path, 0666)
+			utils.CheckError(err)
+		}
+	}
+
+	log.Println("Build request for workspace", imageName)
 
 	// Format the make build command
-	cmd := exec.Command("cmd", "/C", "docker build", ".", "-t", imageName, "-f", dockerfilePath)
+	//cmd := exec.Command("/bin/sh", "-c", "docker build", ".", "-t", imageName)
+	cmd := exec.Command("cmd", "/C", "docker build", ".", "-t", imageName)
 	var o, e bytes.Buffer
 	cmd.Stdout = &o
 	cmd.Stderr = &e
-	//cmd.Dir = path
+	cmd.Dir = p
 
 	// Run the command
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
 		log.Println("Build failed with", err)
 		utils.WriteResponse(w, 400, append([]byte("Build\n"), e.Bytes()...))
@@ -69,35 +76,49 @@ func build(w http.ResponseWriter, body []byte) {
 	}
 }
 
-func run(w http.ResponseWriter, body []byte) {
-	path := utils.GetPathFromBody(body)
+func run(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
 
-	log.Println("Run request for workspace", path)
+	imageName := utils.GetPathFromBody(body)
 
-	// Format the make run command
-	cmd := exec.Command("make", "run")
+	log.Println("Run request for workspace", imageName)
+
+	// Format the make build command
+	//cmd := exec.Command("/bin/sh", "-c", "docker run -d", "--name", imageName, imageName)
+	cmd := exec.Command("cmd", "/C", "docker run", "--name", imageName, imageName)
 	var o, e bytes.Buffer
 	cmd.Stdout = &o
 	cmd.Stderr = &e
-	cmd.Dir = path
 
 	// Run the command
 	err := cmd.Run()
 	if err != nil {
-		log.Println("Run failed with", err)
+		log.Println("Build failed with", err)
 		utils.WriteResponse(w, 400, append([]byte("Run\n"), e.Bytes()...))
 	} else {
-		utils.WriteResponse(w, 200, append([]byte("Run\n"), o.Bytes()...))
+		if len([]byte(e.Bytes())) == 0 {
+			utils.WriteResponse(w, 200, append([]byte("Run\n"), o.Bytes()...))
+		} else {
+			utils.WriteResponse(w, 200, append([]byte("Run\n"), e.Bytes()...))
+		}
 	}
+
+	clear(imageName)
 }
 
-func clean(w http.ResponseWriter, body []byte) {
-	path := utils.GetPathFromBody(body)
+func stop(w http.ResponseWriter, r *http.Request) {
+	body := utils.GetRequestBody(r)
 
-	log.Println("Clean request for workspace", path)
+	imageName := utils.GetPathFromBody(body)
+	path := utils.Tmp
 
-	// Format the make clean command
-	cmd := exec.Command("make", "clean")
+	log.Println("Stop request for workspace", imageName)
+
+	// Format the make build command
+	cmd := exec.Command("/bin/sh", "-c",
+		"docker stop", imageName, ";",
+		"docker rm", imageName, ";",
+	)
 	var o, e bytes.Buffer
 	cmd.Stdout = &o
 	cmd.Stderr = &e
@@ -106,91 +127,58 @@ func clean(w http.ResponseWriter, body []byte) {
 	// Run the command
 	err := cmd.Run()
 	if err != nil {
-		log.Println("Clean failed with", err)
-		utils.WriteResponse(w, 400, append([]byte("Clean\n"), e.Bytes()...))
+		log.Println("Stop failed with", err)
+		utils.WriteResponse(w, 400, append([]byte("Stop\n"), e.Bytes()...))
 	} else {
-		utils.WriteResponse(w, 200, append([]byte("Clean\n"), o.Bytes()...))
+		if len([]byte(e.Bytes())) == 0 {
+			utils.WriteResponse(w, 200, []byte("Stop successful"))
+		} else {
+			utils.WriteResponse(w, 200, append([]byte("Stop\n"), e.Bytes()...))
+		}
 	}
 }
 
-func clear(w http.ResponseWriter, body []byte) {
-	path := utils.GetPathFromBody(body)
+func clear(imageName string) {
+	path := utils.Tmp
 
-	err := os.RemoveAll(path)
+	log.Println("Clear request for workspace", imageName)
 
-	log.Println("Clear request for workspace", path)
+	// Format the make build command
+	//cmd := exec.Command("/bin/sh", "-c", "rm -fr", imageName)
+	/*cmd := exec.Command(
+		"/bin/sh", "-c", "docker rm", imageName, ";",
+		"/bin/sh", "-c", "del /fr", imageName,
+	)*/
+	cmd := exec.Command(
+		"cmd", "/C", "docker rm", imageName,
+	)
+	var o, e bytes.Buffer
+	cmd.Stdout = &o
+	cmd.Stderr = &e
+	cmd.Dir = path
 
+	// Run the command
+	err := cmd.Run()
 	if err != nil {
-		log.Println("Run failed with", err)
-		utils.WriteResponse(w, 400, []byte("Workspace could not be deleted"))
+		log.Println("Clear failed with", err)
+		log.Println(string(append([]byte("Clear"), e.Bytes()...)))
 	} else {
-		utils.WriteResponse(w, 200, []byte("Workspace deleted"))
+		if len([]byte(e.Bytes())) == 0 {
+			log.Println("Clear successful")
+		} else {
+			log.Println(string(append([]byte("Clear\n"), e.Bytes()...)))
+		}
 	}
-}
-
-// Get the workspace from io microservice
-func getRequest(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	get(w, body)
-}
-
-// Compile files if necessary
-func buildRequest(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	build(w, body)
-}
-
-// Runs the project in a workspace
-func runRequest(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	run(w, body)
-}
-
-// Cleans the project in a workspace
-func cleanRequest(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	clean(w, body)
-}
-
-// Deletes the workspace folder
-func clearRequest(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	clear(w, body)
-}
-
-// Run a specific test
-func registerChange(c containers.OneChangeContainer) {
-	workspace := utils.GetWorkspaceHash(c.Fileinfo.Workspace)
-	path := filepath.Join(utils.Tmp, workspace)
-
-	file := filepath.Join(c.Fileinfo.Path...)
-
-	filename := filepath.Join(path, file)
-
-	log.Println("Change on file", filename)
-
-	data, err := ioutil.ReadFile(filename)
-	utils.CheckError(err)
-
-	data = utils.ApplyChange(data, c.Change)
-
-	err = ioutil.WriteFile(filename, data, 0666)
-	utils.CheckError(err)
 }
 
 func main() {
+	log.Println("Computer microservice is running")
+
 	r := mux.NewRouter()
 
-	r.HandleFunc("/api/get", getRequest).Methods("GET")
-	r.HandleFunc("/api/build", buildRequest).Methods("PUT")
-	r.HandleFunc("/api/run", runRequest).Methods("GET")
-	r.HandleFunc("/api/clean", cleanRequest).Methods("DELETE")
-	r.HandleFunc("/api/clear", clearRequest).Methods("DELETE")
+	r.HandleFunc("/api/build", build).Methods("POST")
+	r.HandleFunc("/api/run", run).Methods("POST")
+	r.HandleFunc("/api/stop", stop).Methods("POST")
 
-	log.Fatal(http.ListenAndServe(":7000", r))
+	log.Fatal(http.ListenAndServe(":8000", r))
 }

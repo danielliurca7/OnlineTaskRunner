@@ -1,6 +1,7 @@
 package request
 
 type Request struct {
-	Type string
-	Workspace string
+	Type     string
+	Username string
+	Request  string
 }

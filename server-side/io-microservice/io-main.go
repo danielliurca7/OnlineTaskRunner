@@ -6,13 +6,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"../data_structures/containers"
 	"../data_structures/file"
-	"../data_structures/fileinfo"
-	"../data_structures/tree"
 	"../data_structures/workspace"
 	"../utils"
 	"github.com/gorilla/mux"
@@ -20,228 +19,6 @@ import (
 
 const fileSystem = "D:\\Projects\\OnlineTaskRunner\\server-side\\file_system"
 const sep = string(os.PathSeparator)
-
-// Creates the file with the specified name
-func createFile(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	var fi fileinfo.Fileinfo
-	json.Unmarshal(body, &fi)
-
-	path := utils.GetPath(fi)
-
-	log.Println("Create file request for path " + path)
-
-	dir, file := filepath.Split(path)
-
-	path = filepath.Join(fileSystem, dir)
-
-	if !utils.FileExists(path) {
-		err := os.MkdirAll(path, os.ModeDir)
-
-		if err != nil {
-			log.Println(err)
-			utils.WriteResponse(w, 500, []byte("Folder could not be created"))
-			return
-		}
-	}
-
-	path = filepath.Join(path, file)
-
-	if utils.FileExists(path) {
-		utils.WriteResponse(w, 400, []byte("File already exists at specified path"))
-	} else {
-		file, err := os.Create(path)
-
-		defer file.Close()
-
-		if err != nil {
-			log.Println(err.Error())
-			utils.WriteResponse(w, 500, []byte("File could not be created"))
-			return
-		}
-
-		utils.WriteResponse(w, 200, []byte("File created"))
-	}
-}
-
-func createFolder(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	var fi fileinfo.Fileinfo
-	json.Unmarshal(body, &fi)
-
-	path := utils.GetPath(fi)
-
-	log.Println("Create folder request for path " + path)
-
-	path = filepath.Join(fileSystem, path)
-
-	if !utils.FileExists(path) {
-		err := os.MkdirAll(path, os.ModeDir)
-
-		if err != nil {
-			log.Println(err)
-			utils.WriteResponse(w, 500, []byte("Folder could not be created"))
-			return
-		}
-	}
-
-	if utils.FileExists(path) {
-		utils.WriteResponse(w, 400, []byte("Folder already exists at specified path"))
-	} else {
-		file, err := os.Create(path)
-
-		defer file.Close()
-
-		if err != nil {
-			log.Println(err.Error())
-			utils.WriteResponse(w, 500, []byte("File could not be created"))
-			return
-		}
-
-		utils.WriteResponse(w, 200, []byte("File created"))
-	}
-}
-
-// Renames the file with the specified name
-func renameFile(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	var fi []fileinfo.Fileinfo
-	json.Unmarshal(body, &fi)
-
-	oldPath := utils.GetPath(fi[0])
-	newPath := utils.GetPath(fi[1])
-
-	log.Println("Rename file request for path " + oldPath)
-
-	if !utils.FileExists(oldPath) {
-		utils.WriteResponse(w, 404, []byte("File to rename not found"))
-	} else {
-		err := os.Rename(oldPath, newPath)
-
-		if err != nil {
-			log.Println(err.Error())
-			utils.WriteResponse(w, 500, []byte("File could not be renamed"))
-		} else {
-			utils.WriteResponse(w, 200, []byte("File renamed"))
-		}
-	}
-}
-
-// Deletes the file with the specified name
-func deleteFile(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	var fi fileinfo.Fileinfo
-	json.Unmarshal(body, &fi)
-
-	path := utils.GetPath(fi)
-
-	log.Println("Delete file request for path", path)
-
-	path = filepath.Join(fileSystem, path)
-
-	log.Println(fi)
-
-	if !utils.FileExists(path) {
-		utils.WriteResponse(w, 400, []byte("No file at the specified path"))
-	} else {
-		err := os.Remove(path)
-
-		if err != nil {
-			log.Println(err)
-			utils.WriteResponse(w, 500, []byte("File could not be deleted"))
-			return
-		}
-
-		utils.WriteResponse(w, 200, []byte("File deleted"))
-	}
-}
-
-// Establishes a tcp connection and sends a file
-func getFile(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	var fi fileinfo.Fileinfo
-	json.Unmarshal(body, &fi)
-
-	path := utils.GetPath(fi)
-
-	log.Println("Get file request for path", path)
-
-	path = filepath.Join(fileSystem, path)
-
-	data, err := ioutil.ReadFile(path)
-	if err != nil {
-		utils.WriteResponse(w, 500, []byte("File could not be read"))
-		log.Println(err)
-	}
-
-	utils.WriteResponse(w, 200, data)
-}
-
-func getFileTree(w http.ResponseWriter, r *http.Request) {
-	body := utils.GetRequestBody(r)
-
-	var ws workspace.Workspace
-	json.Unmarshal(body, &ws)
-
-	path := utils.GetWorkspace(ws)
-
-	log.Println("Get file tree request for path", path)
-
-	path = filepath.Join(fileSystem, path)
-	pathLen := len(strings.Split(path, sep))
-
-	root := &tree.Node{}
-
-	err := filepath.Walk(path,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			pathParts := strings.Split(path, sep)[pathLen:]
-
-			presentNode := root
-
-			for index, fileName := range pathParts {
-				found := false
-
-				for _, node := range presentNode.Children {
-					if node.Name == fileName {
-						presentNode = node
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					node := &tree.Node{
-						Name:     fileName,
-						Children: []*tree.Node{},
-						IsDir:    info.IsDir(),
-						Path:     pathParts[:index+1],
-					}
-					presentNode.Children = append(presentNode.Children, node)
-					presentNode = node
-				}
-			}
-
-			return nil
-		})
-	if err != nil {
-		log.Println(err)
-		utils.WriteResponse(w, 500, []byte("Could not walk through file tree"))
-	}
-
-	b, err := json.Marshal(root.Children)
-	utils.CheckError(err)
-
-	utils.WriteResponse(w, 200, b)
-}
 
 func getWorkSpace(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
@@ -251,7 +28,7 @@ func getWorkSpace(w http.ResponseWriter, r *http.Request) {
 
 	path := utils.GetWorkspace(ws)
 
-	log.Println("Get file tree request for path", path)
+	log.Println("Get workspace request for path", path)
 
 	path = filepath.Join(fileSystem, path)
 	pathLen := len(strings.Split(path, sep))
@@ -276,20 +53,15 @@ func getWorkSpace(w http.ResponseWriter, r *http.Request) {
 				data = nil
 			}
 
-			path = strings.Join(
-				strings.Split(
-					path, sep,
-				)[pathLen:],
-				sep,
-			)
+			pathList := strings.Split(path, sep)[pathLen:]
 
 			f := file.File{
-				Path:  path,
+				Path:  pathList,
 				Data:  string(data),
 				IsDir: info.IsDir(),
 			}
 
-			if path != "" {
+			if len(pathList) > 0 {
 				files = append(files, f)
 			}
 
@@ -313,16 +85,25 @@ func updateFiles(w http.ResponseWriter, r *http.Request) {
 	var c containers.WorkspaceContainer
 	json.Unmarshal(body, &c)
 
-	workspace := utils.GetWorkspace(c.Workspace)
+	workspace := filepath.Join(fileSystem, utils.GetWorkspace(c.Workspace))
 
 	log.Println("Update workspace request for", workspace)
 
+	dir, err := ioutil.ReadDir(workspace)
+	utils.CheckError(err)
+
+	for _, d := range dir {
+		os.RemoveAll(path.Join([]string{workspace, d.Name()}...))
+	}
+
 	for _, v := range c.Files {
-		file := filepath.Join(workspace, filepath.Join(v.Path))
-		path := filepath.Join(fileSystem, file)
+		path := filepath.Join(workspace, filepath.Join(v.Path...))
 
 		if !v.IsDir {
 			err := ioutil.WriteFile(path, []byte(v.Data), 0666)
+			utils.CheckError(err)
+		} else {
+			err := os.MkdirAll(path, 0666)
 			utils.CheckError(err)
 		}
 	}
@@ -331,14 +112,7 @@ func updateFiles(w http.ResponseWriter, r *http.Request) {
 func main() {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/api/create_file", createFile).Methods("POST")
-	r.HandleFunc("/api/create_folder", createFolder).Methods("POST")
-	r.HandleFunc("/api/rename", renameFile).Methods("POST")
-	r.HandleFunc("/api/delete", deleteFile).Methods("POST")
-	r.HandleFunc("/api/get", getFile).Methods("POST")
 	r.HandleFunc("/api/update", updateFiles).Methods("POST")
-
-	r.HandleFunc("/api/filetree", getFileTree).Methods("POST")
 	r.HandleFunc("/api/workspace", getWorkSpace).Methods("POST")
 
 	log.Fatal(http.ListenAndServe(":10000", r))

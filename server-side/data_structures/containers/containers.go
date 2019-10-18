@@ -7,9 +7,21 @@ import (
 	"../workspace"
 )
 
-type OneChangeContainer struct {
-	Fileinfo fileinfo.Fileinfo
-	Change   change.Change
+type ChangeContainer struct {
+	Workspace workspace.Workspace
+	Fileinfo  fileinfo.Fileinfo
+	Change    change.Change
+}
+
+type OneFileContainer struct {
+	Workspace workspace.Workspace
+	Fileinfo  fileinfo.Fileinfo
+	Data      string
+}
+
+type TwoFileinfoContainer struct {
+	Workspace workspace.Workspace
+	Fileinfo  [2]fileinfo.Fileinfo
 }
 
 type WorkspaceContainer struct {
