@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS Users (
     UserName VARCHAR(30) NOT NULL,
     FirstName VARCHAR(30),
     LastName VARCHAR(30),
+    PasswordHash CHAR(64),
     PRIMARY KEY (UserName)
 );
 
@@ -69,9 +70,27 @@ CREATE TABLE IF NOT EXISTS Grades (
     GroupNumber INT NOT NULL,
     Grade INT NOT NULL,
     AssistentName VARCHAR(30) NOT NULL,
-    GradeTime DATE,
+    GradeTime DATETIME,
     PRIMARY KEY (AssignmentName, CourseName, SchoolYear, SeriesName, StudentName, GroupNumber),
     FOREIGN KEY (AssignmentName, CourseName, SchoolYear, SeriesName) REFERENCES Assignments (AssignmentName, CourseName, SchoolYear, SeriesName),
     FOREIGN KEY (StudentName, GroupNumber, SeriesName, SchoolYear) REFERENCES Students (StudentName, GroupNumber, SeriesName, SchoolYear),
     FOREIGN KEY (AssistentName) REFERENCES Assistents (AssistentName)
+);
+
+CREATE TABLE IF NOT EXISTS AssistentsToCourses (
+    AssistentName VARCHAR(30) NOT NULL,
+    CourseName VARCHAR(50) NOT NULL,
+    SchoolYear INT NOT NULL,
+    PRIMARY KEY (AssistentName, CourseName, SchoolYear),
+    FOREIGN KEY (AssistentName) REFERENCES Assistents (AssistentName),
+    FOREIGN KEY (CourseName, SchoolYear) REFERENCES Courses (CourseName, SchoolYear)
+);
+
+CREATE TABLE IF NOT EXISTS StudentsToCourses (
+    StudentName VARCHAR(30) NOT NULL,
+    CourseName VARCHAR(50) NOT NULL,
+    SchoolYear INT NOT NULL,
+    PRIMARY KEY (StudentName, CourseName, SchoolYear),
+    FOREIGN KEY (StudentName) REFERENCES Students (StudentName),
+    FOREIGN KEY (CourseName, SchoolYear) REFERENCES Courses (CourseName, SchoolYear)
 );

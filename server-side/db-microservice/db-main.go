@@ -19,17 +19,28 @@ import (
 	"../utils"
 )
 
+var db *sql.DB
 var tokens = make(map[string][]byte)
 
 func authenticate(w http.ResponseWriter, r *http.Request) {
 	body := utils.GetRequestBody(r)
 
-	log.Println("Authenticate request for user", string(body))
-
 	var credentials credentials.Credentials
 	json.Unmarshal(body, &credentials)
 
-	// TODO Check credentials.Username and credentials.PasswordHash against db
+	log.Println("Authenticate request for user", credentials.Username)
+
+	_, err := db.Exec("set @valid = Login(?, ?);", credentials.Username, credentials.PasswordHash)
+	utils.CheckError(err)
+
+	row := db.QueryRow("select @valid")
+
+	valid := false
+	row.Scan(&valid)
+
+	if !valid {
+		return
+	}
 
 	h := sha1.New()
 
@@ -61,9 +72,9 @@ func validate(w http.ResponseWriter, r *http.Request) {
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 		fmt.Println(claims["request"])
 
-		// Check permisions
+		// TODO Check permisions
 	} else {
-		fmt.Println(err)
+		log.Println(err)
 	}
 }
 
@@ -74,24 +85,18 @@ func test(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(body, &request)
 
 	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/university")
-	if err != nil {
-		fmt.Println(err)
-	}
+	utils.CheckError(err)
 	defer db.Close()
 
 	if string(body) == "insert" {
-		res, err := db.Exec("insert into Users values ('daniel.liurca', 'Daniel', 'Liurca');")
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		fmt.Println(res)
+		_, err := db.Exec("insert into Users(UserName, FirstName, LastName) values ('daniel.liurca', 'Daniel', 'Liurca');")
+		utils.CheckError(err)
 	} else if string(body) == "select" {
 		var username string
 		var firstname string
 		var lastname string
 
-		rows, err := db.Query("select * from Users;")
+		rows, err := db.Query("select UserName, FirstName, LastName from Users;")
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -101,11 +106,39 @@ func test(w http.ResponseWriter, r *http.Request) {
 		utils.CheckError(err)
 
 		fmt.Println(username, firstname, lastname)
+	} else if string(body) == "call" {
+		userName := "daniel.liurca"
+		courseName := "CPL"
+		schoolyear := 2019
+		assignmentName := "Tema 1"
+
+		_, err := db.Exec("set @valid = IsValid(?, ?, ?, ?);", userName, courseName, schoolyear, assignmentName)
+		utils.CheckError(err)
+
+		row := db.QueryRow("select @valid")
+
+		var valid bool
+		switch err := row.Scan(&valid); err {
+		case sql.ErrNoRows:
+			fmt.Println("No rows were returned!")
+		case nil:
+			fmt.Println(valid)
+		default:
+			utils.CheckError(err)
+		}
 	}
 }
 
 func main() {
 	r := mux.NewRouter()
+
+	db, _ = sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/university")
+	defer db.Close()
+
+	err := db.Ping()
+	if err != nil {
+		panic(err)
+	}
 
 	r.HandleFunc("/api/test", test).Methods("POST")
 

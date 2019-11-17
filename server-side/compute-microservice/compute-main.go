@@ -85,7 +85,7 @@ func run(w http.ResponseWriter, r *http.Request) {
 
 	// Format the make build command
 	//cmd := exec.Command("/bin/sh", "-c", "docker run -d", "--name", imageName, imageName)
-	cmd := exec.Command("cmd", "/C", "docker run", "--name", imageName, imageName)
+	cmd := exec.Command("cmd", "/C", "docker run", "--rm", "--name", imageName, imageName)
 	var o, e bytes.Buffer
 	cmd.Stdout = &o
 	cmd.Stderr = &e
@@ -150,7 +150,7 @@ func clear(imageName string) {
 		"/bin/sh", "-c", "del /fr", imageName,
 	)*/
 	cmd := exec.Command(
-		"cmd", "/C", "docker rm", imageName,
+		"cmd", "/C", "docker rmi", imageName,
 	)
 	var o, e bytes.Buffer
 	cmd.Stdout = &o
@@ -160,11 +160,11 @@ func clear(imageName string) {
 	// Run the command
 	err := cmd.Run()
 	if err != nil {
-		log.Println("Clear failed with", err)
+		log.Println("Clear image failed with", err)
 		log.Println(string(append([]byte("Clear"), e.Bytes()...)))
 	} else {
 		if len([]byte(e.Bytes())) == 0 {
-			log.Println("Clear successful")
+			log.Println("Clear image successful")
 		} else {
 			log.Println(string(append([]byte("Clear\n"), e.Bytes()...)))
 		}
