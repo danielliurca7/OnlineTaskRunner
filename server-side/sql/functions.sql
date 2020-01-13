@@ -14,6 +14,29 @@ BEGIN
     RETURN isValid;
 END$$
 
+CREATE FUNCTION GetType (
+    _UserName VARCHAR(30)
+)
+RETURNS VARCHAR(2)
+READS SQL DATA
+BEGIN
+    DECLARE type VARCHAR(2) DEFAULT "";
+
+    IF EXISTS(SELECT * FROM Students WHERE StudentName = _UserName) THEN
+        SET type = CONCAT(type, "1");
+    END IF;
+
+    IF EXISTS(SELECT * FROM Assistents WHERE AssistentName = _UserName) THEN
+        SET type = CONCAT(type, "2");
+    END IF;
+    
+    IF EXISTS(SELECT * FROM Professors WHERE ProfessorName = _UserName) THEN
+        SET type = CONCAT(type, "3");
+    END IF;
+
+    RETURN type;
+END$$
+
 CREATE FUNCTION IsValid (
     _UserName VARCHAR(30),
     _CourseName VARCHAR(50),

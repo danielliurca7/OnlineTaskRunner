@@ -12,5 +12,5 @@ RUN go get github.com/gorilla/mux
 RUN go get github.com/graarh/golang-socketio
 RUN go build -o io-main .
 
-EXPOSE 10000
+EXPOSE 11000
 CMD ["/app/io-main"]

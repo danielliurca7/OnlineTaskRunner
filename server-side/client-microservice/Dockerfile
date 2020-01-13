@@ -12,5 +12,5 @@ RUN go get github.com/gorilla/mux
 RUN go get github.com/graarh/golang-socketio
 RUN go build -o client-main .
 
-EXPOSE 8000
+EXPOSE 7000
 CMD ["/app/client-main"]

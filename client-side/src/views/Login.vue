@@ -40,7 +40,6 @@
 </template>
 
 <script>
-// @ is an alias to /src
 import axios from "axios";
 import Navbar from "@/components/Navbar.vue";
 import { mapActions } from "vuex";
@@ -58,42 +57,52 @@ export default {
     };
   },
   methods: {
-    ...mapActions(["setUsername"]),
+    ...mapActions(["setUsername", "setToken", "setType"]),
     onSubmit: function() {
-      // authentication with cs.curs api
-      // check credentials
-      var year = 2018;
-      var base_url = "https://acs.curs.pub.ro/" + year + "/login/token.php";
-      var params = {
-        username: this.username,
-        password: this.password,
-        service: "moodle_mobile_app"
-      };
+      if (this.$cookie.get("username") !== null) {
+        this.setUsername(this.$cookie.get("username"));
 
-      var queryString = Object.keys(params)
-        .map(key => key + "=" + params[key])
-        .join("&");
-
-      var url = base_url + "?" + queryString;
-
-      axios
-        .post(url)
-        .then(response => {
-          console.log(response.data);
-        })
-        .catch(error => {
-          console.log(error);
-        });
-
-      this.setUsername(this.username);
-
-      // if the "Remember me" box is active, create a new cookie for username
-      if (this.remember) {
-        this.$cookie.set("username", this.username, 1);
+        // go to dashboard
+        this.$router.push("/dashboard");
       }
 
-      // go to dashboard
-      this.$router.push("/dashboard");
+      axios
+        .post("http://localhost:7000/api/authenticate", {
+          username: this.username,
+          passwordHash: this.CryptoJS.SHA256(this.password).toString()
+        })
+        .then(response => {
+          console.log(response.data);
+
+          if (response.data !== "Invalid password") {
+            this.setUsername(this.username);
+            this.setToken(response.data);
+
+            axios
+              .post("http://localhost:7000/api/type", {
+                username: this.username
+              })
+              .then(response => {
+                this.setType(response.data);
+                this.$cookie.set("type", response.data, 1);
+              })
+              .catch(error => {
+                console.log(error.message);
+              });
+
+            // if the "Remember me" box is active, create a new cookie for username
+            if (this.remember) {
+              this.$cookie.set("username", this.username, 1);
+              this.$cookie.set("token", response.data, 1);
+            }
+
+            // go to dashboard
+            this.$router.push("/dashboard");
+          }
+        })
+        .catch(error => {
+          console.log(error.message);
+        });
     }
   }
 };

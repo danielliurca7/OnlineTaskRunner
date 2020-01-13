@@ -24,8 +24,23 @@
         </b-navbar-nav>
       </b-collapse>
 
-      <b-navbar-nav class="ml-auto">
+      <b-navbar-nav class="ml-auto" v-if="getType == '1' || getType == '12'">
         <b-nav-item to="/dashboard">Dashboard</b-nav-item>
+      </b-navbar-nav>
+
+      <b-navbar-nav class="ml-auto" v-if="getType == '1' || getType == '12'">
+        <b-nav-item to="/subjectoverview">Subjects</b-nav-item>
+      </b-navbar-nav>
+
+      <b-navbar-nav class="ml-auto" v-if="getType == '1' || getType == '12'">
+        <b-nav-item to="/results">Results</b-nav-item>
+      </b-navbar-nav>
+
+      <b-navbar-nav
+        class="ml-auto"
+        v-if="getType == '2' || getType == '12' || getType == '23'"
+      >
+        <b-nav-item to="/gradeoverview">Grade</b-nav-item>
       </b-navbar-nav>
 
       <b-navbar-nav class="ml-auto">
@@ -69,7 +84,7 @@ export default {
     };
   },
   methods: {
-    ...mapActions(["setUsername", "closeTab"]),
+    ...mapActions(["setUsername", "closeTab", "setType"]),
     close: function(tabName) {
       // close the tab with name tabName
       this.closeTab(tabName);
@@ -86,7 +101,7 @@ export default {
     }
   },
   computed: {
-    ...mapGetters(["getUsername", "getTabs"])
+    ...mapGetters(["getUsername", "getTabs", "getType"])
   },
   mounted() {
     // if the username cookie is active, load it
@@ -95,6 +110,14 @@ export default {
       this.$cookie.get("username") !== null
     ) {
       this.setUsername(this.$cookie.get("username"));
+    }
+
+    // if the type cookie is active, load it
+    if (
+      this.$cookie.get("type") !== undefined &&
+      this.$cookie.get("type") !== null
+    ) {
+      this.setType(this.$cookie.get("type"));
     }
   }
 };

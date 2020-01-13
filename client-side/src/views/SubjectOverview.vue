@@ -1,22 +1,20 @@
 <template>
-  <div class="dashboard">
+  <div>
     <AuthNavbar />
     <SubjectSidebar />
-    <FrontpageTable />
+    <h1>Insert subject overview</h1>
   </div>
 </template>
 
 <script>
 import AuthNavbar from "@/components/AuthNavbar.vue";
 import SubjectSidebar from "@/components/SubjectSidebar.vue";
-import FrontpageTable from "@/components/FrontpageTable.vue";
 
 export default {
-  name: "dashboard",
+  name: "SubjectOverview",
   components: {
     AuthNavbar,
-    SubjectSidebar,
-    FrontpageTable
+    SubjectSidebar
   }
 };
 </script>

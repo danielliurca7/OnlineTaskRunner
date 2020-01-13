@@ -34,9 +34,34 @@ export default new Router({
       component: () => import("./views/Dashboard.vue")
     },
     {
+      path: "/subjectoverview",
+      name: "subjectoverview",
+      component: () => import("./views/SubjectOverview.vue")
+    },
+    {
       path: "/subject/:name",
       name: "subject",
       component: () => import("./views/Subject.vue")
+    },
+    {
+      path: "/results",
+      name: "results",
+      component: () => import("./views/Results.vue")
+    },
+    {
+      path: "/gradeoverview",
+      name: "gradeoverview",
+      component: () => import("./views/GradeOverview.vue")
+    },
+    {
+      path: "/grade/:name",
+      name: "grade",
+      component: () => import("./views/Grade.vue")
+    },
+    {
+      path: "/grade/:subject/:assignment",
+      name: "gradeassignment",
+      component: () => import("./views/GradeAssignment.vue")
     },
     {
       path: "/profile",

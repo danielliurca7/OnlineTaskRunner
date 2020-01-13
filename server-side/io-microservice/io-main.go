@@ -8,7 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
+	"strconv"
 
 	"../data_structures/containers"
 	"../data_structures/file"
@@ -26,47 +26,29 @@ func getWorkSpace(w http.ResponseWriter, r *http.Request) {
 	var ws workspace.Workspace
 	json.Unmarshal(body, &ws)
 
-	path := utils.GetWorkspace(ws)
-
-	log.Println("Get workspace request for path", path)
-
-	path = filepath.Join(fileSystem, path)
-	pathLen := len(strings.Split(path, sep))
+	log.Println("Get workspace request for path", filepath.Join(ws.Subject, strconv.Itoa(ws.Year), ws.AssignmentName, ws.Owner))
 
 	var files []file.File
 
-	err := filepath.Walk(path,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
+	path := filepath.Join(fileSystem, ws.Subject, strconv.Itoa(ws.Year), ws.AssignmentName, ws.Owner)
 
-			var data []byte
+	files, err := utils.ReadFiles(path, files)
+	if err != nil {
+		log.Println(err)
+		utils.WriteResponse(w, 500, []byte("Could not walk through file tree"))
+	}
 
-			if !info.IsDir() {
-				data, err = ioutil.ReadFile(path)
-				if err != nil {
-					utils.WriteResponse(w, 500, []byte("A File could not be read"))
-					log.Println(err)
-				}
-			} else {
-				data = nil
-			}
+	path = filepath.Join(fileSystem, ws.Subject, strconv.Itoa(ws.Year), ws.AssignmentName, "tests")
 
-			pathList := strings.Split(path, sep)[pathLen:]
+	files, err = utils.ReadFiles(path, files)
+	if err != nil {
+		log.Println(err)
+		utils.WriteResponse(w, 500, []byte("Could not walk through file tree"))
+	}
 
-			f := file.File{
-				Path:  pathList,
-				Data:  string(data),
-				IsDir: info.IsDir(),
-			}
+	path = filepath.Join(fileSystem, ws.Subject, strconv.Itoa(ws.Year), ws.AssignmentName, "libraries")
 
-			if len(pathList) > 0 {
-				files = append(files, f)
-			}
-
-			return nil
-		})
+	files, err = utils.ReadFiles(path, files)
 	if err != nil {
 		log.Println(err)
 		utils.WriteResponse(w, 500, []byte("Could not walk through file tree"))
@@ -115,5 +97,5 @@ func main() {
 	r.HandleFunc("/api/update", updateFiles).Methods("POST")
 	r.HandleFunc("/api/workspace", getWorkSpace).Methods("POST")
 
-	log.Fatal(http.ListenAndServe(":10000", r))
+	log.Fatal(http.ListenAndServe(":11000", r))
 }

@@ -170,12 +170,8 @@ export default {
     contextMenu: function(itemObject, object) {
       switch (itemObject.code) {
         case "NEW_FILE":
-          
-
           break;
         case "NEW_FOLDER":
-
-
           break;
         case "DELETE":
           axios

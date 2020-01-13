@@ -386,5 +386,5 @@ func main() {
 	r.HandleFunc("/api/commit", commitFiles).Methods("POST")
 	r.HandleFunc("/api/update", updateFile).Methods("POST")
 
-	log.Fatal(http.ListenAndServe(":7000", r))
+	log.Fatal(http.ListenAndServe(":8000", r))
 }

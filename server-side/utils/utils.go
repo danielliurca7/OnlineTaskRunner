@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"../data_structures/change"
 	"../data_structures/changes"
@@ -21,6 +22,7 @@ import (
 
 //const Tmp = "/tmp"
 const Tmp = "D:\\Projects\\OnlineTaskRunner\\server-side\\tmp"
+const sep = string(os.PathSeparator)
 
 func CheckError(err error) {
 	if err != nil {
@@ -172,4 +174,42 @@ func ApplyChange(content string, c change.Change) string {
 	}
 
 	return string(append(append(data[:start], []byte(c.Current)...), last...))
+}
+
+func ReadFiles(path string, files []file.File) ([]file.File, error) {
+	pathLen := len(strings.Split(path, sep))
+
+	err := filepath.Walk(path,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			var data []byte
+
+			if !info.IsDir() {
+				data, err = ioutil.ReadFile(path)
+				if err != nil {
+					return err
+				}
+			} else {
+				data = nil
+			}
+
+			pathList := strings.Split(path, sep)[pathLen-1:]
+
+			f := file.File{
+				Path:  pathList,
+				Data:  string(data),
+				IsDir: info.IsDir(),
+			}
+
+			if len(pathList) > 0 {
+				files = append(files, f)
+			}
+
+			return nil
+		})
+
+	return files, err
 }
