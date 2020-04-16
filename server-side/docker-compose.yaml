@@ -1,0 +1,96 @@
+version: '3.3'
+
+services:
+  client:
+    build:
+      context: ./client_service
+    ports:
+      - 3000:3000
+    networks:
+      - files
+      - database
+      - compute
+    environment:
+      SECRET_KEY: key
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq
+    networks:
+      - compute
+      - files
+    restart: always
+
+  compute:
+    build: ./compute_service
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - compute
+      - files_compute
+    depends_on:
+      - rabbitmq
+    restart: always
+
+  files:
+    build: ./files_service
+    volumes:
+      - ./test/file_system:/data
+    networks:
+      - files
+      - files_compute
+    depends_on:
+      - rabbitmq
+      - redis
+    restart: always
+
+  redis:
+    image: redis
+    networks:
+      - files
+    restart: always
+
+  database:
+    build: ./database_service
+    depends_on:
+      - postgres
+      - mongo
+    networks:
+      - database
+    restart: always
+
+  postgres:
+    image: postgres
+    networks:
+      - database
+    volumes:
+      - ./db_init/postgres:/docker-entrypoint-initdb.d
+      - user_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: university      
+    restart: always
+
+  mongo:
+    image: mongo
+    networks:
+      - database
+    volumes:
+      - ./db_init/mongo:/docker-entrypoint-initdb.d
+      - otr_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root      
+      MONGO_INITDB_DATABASE: otr_data
+    restart: always
+
+volumes:
+  user_data : {}
+  otr_data  : {}
+
+networks:
+  files         : {}
+  database      : {}
+  compute       : {}
+  files_compute : {}
