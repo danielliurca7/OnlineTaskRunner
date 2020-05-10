@@ -9,10 +9,9 @@
       class="d-flex justify-content-end"
     >
       <b-button-group class="m-2">
-        <b-button @click="clean">Clean</b-button>
         <b-button @click="build">Build</b-button>
+        <b-button @click="stop">Stop</b-button>
         <b-button @click="run">Run</b-button>
-        <b-button @click="build_run">Build&Run</b-button>
       </b-button-group>
     </b-button-toolbar>
 
@@ -28,28 +27,40 @@
 </template>
 
 <script>
-import { mapGetters } from "vuex";
+import { mapGetters, mapActions } from "vuex";
 import axios from "axios";
 
 export default {
   name: "FileSidebar",
+  computed: {
+    ...mapGetters(["getUsername", "getToken"])
+  },
   mounted() {
+    var workspace = {
+      owner: this.$route.params.owner,
+      course: this.$route.params.course,
+      assignmentname: this.$route.params.assignmentname,
+      year: parseInt(this.$route.params.year),
+      series: this.$route.params.series,
+      folder: []
+    };
+
     axios
-      .post("http://localhost:8000/api/filetree", {
-        owner: this.getUsername,
-        subject: "APD",
-        assignmentname: "Tema de smecherie",
-        year: 2019
+      .post("http://localhost:3000/api/files", workspace, {
+        headers: { Authorization: this.getToken }
       })
       .then(response => {
-        this.treeData = response.data;
+        let files = response.data;
+
+        this.treeData = this.constructTreeData(files);
+        this.addWorkspace({
+          workspace: workspace,
+          files: files
+        });
       })
       .catch(error => {
         console.log(error);
       });
-  },
-  computed: {
-    ...mapGetters(["getUsername"])
   },
   data() {
     return {
@@ -63,79 +74,84 @@ export default {
     };
   },
   methods: {
-    run: function() {
-      axios
-        .post("http://localhost:8000/api/run", {
-          owner: this.getUsername,
-          subject: "APD",
-          assignmentname: "Tema de smecherie",
-          year: 2019
-        })
-        .then(response => {
-          console.log(response.data);
-        })
-        .catch(error => {
-          console.log(error);
-        });
+    ...mapActions(["addWorkspace"]),
+    constructTreeData: function(files) {
+      let get_filetree_data = file => {
+        let path = file.path;
+        let path_len = path.length;
+
+        return {
+          data: file.data,
+          isDir: file.isdir,
+          name: path[path_len - 1],
+          path: path,
+          children: files
+            .filter(
+              other =>
+                JSON.stringify(other.path.slice(0, path_len)) ===
+                  JSON.stringify(path) && other.path.length === path_len + 1
+            )
+            .map(get_filetree_data)
+        };
+      };
+
+      return files
+        .filter(file => file.path.length === 1)
+        .map(get_filetree_data);
     },
     build: function() {
       axios
-        .post("http://localhost:8000/api/build", {
-          owner: this.getUsername,
-          subject: "APD",
-          assignmentname: "Tema de smecherie",
-          year: 2019
-        })
-        .then(response => {
-          console.log(response);
-        })
-        .catch(error => {
-          console.log(error);
-        });
+        .post(
+          "http://localhost:3000/api/build",
+          {
+            owner: "",
+            course: this.$route.params.course,
+            assignmentname: this.$route.params.assignmentname,
+            year: parseInt(this.$route.params.year),
+            series: this.$route.params.series,
+            folder: ["config"]
+          },
+          {
+            headers: { Authorization: this.getToken }
+          }
+        )
+        .then(response => console.log(response.data));
     },
-    clean: function() {
+    run: function() {
       axios
-        .post("http://localhost:8000/api/clean", {
-          owner: this.getUsername,
-          subject: "APD",
-          assignmentname: "Tema de smecherie",
-          year: 2019
-        })
-        .then(response => {
-          console.log(response.data);
-        })
-        .catch(error => {
-          console.log(error);
-        });
+        .post(
+          "http://localhost:3000/api/run",
+          {
+            owner: this.$route.params.owner,
+            course: this.$route.params.course,
+            assignmentname: this.$route.params.assignmentname,
+            year: parseInt(this.$route.params.year),
+            series: this.$route.params.series,
+            folder: []
+          },
+          {
+            headers: { Authorization: this.getToken }
+          }
+        )
+        .then(response => console.log(response.data));
     },
-    build_run: function() {
+    stop: function() {
       axios
-        .post("http://localhost:8000/api/build", {
-          owner: this.getUsername,
-          subject: "APD",
-          assignmentname: "Tema de smecherie",
-          year: 2019
-        })
-        .then(response => {
-          console.log(response.data);
-
-          axios
-            .post("http://localhost:8000/api/run", {
-              owner: this.getUsername,
-              subject: "APD",
-              assignmentname: "Tema de smecherie",
-              year: 2019
-            })
-            .then(response => {
-              console.log(response.data);
-            })
-            .catch(error => {
-              console.log(error);
-            });
-        })
-        .catch(error => {
-          console.log(error);
-        });
+        .post(
+          "http://localhost:3000/api/stop",
+          {
+            owner: this.$route.params.owner,
+            course: this.$route.params.course,
+            assignmentname: this.$route.params.assignmentname,
+            year: parseInt(this.$route.params.year),
+            series: this.$route.params.series,
+            folder: []
+          },
+          {
+            headers: { Authorization: this.getToken }
+          }
+        )
+        .then(response => console.log(response.data));
     },
     select: function(object, isSelected) {
       if (object.data.isDir) {
@@ -145,25 +161,7 @@ export default {
         }
       } else {
         if (isSelected) {
-          var request = {
-            owner: this.getUsername,
-            subject: "APD",
-            assignmentname: "Tema de smecherie",
-            year: 2019,
-            path: object.data.path
-          };
-
-          axios
-            .post("http://localhost:10000/api/get", request)
-            .then(response => {
-              this.$emit("load_file", {
-                info: request,
-                data: response.data
-              });
-            })
-            .catch(error => {
-              console.log(error);
-            });
+          this.$emit("load_path", object.data.path);
         }
       }
     },

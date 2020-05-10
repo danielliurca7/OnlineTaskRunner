@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	datastructures "../data_structures"
@@ -21,7 +22,7 @@ func CopyFilesToMemory(ws datastructures.Workspace, files []datastructures.File)
 		path := filepath.Join(ws.ToString(), filepath.Join(file.Path...))
 
 		if !file.IsDir {
-			if err := ioutil.WriteFile(path, []byte(file.Data), 0666); err != nil {
+			if err := ioutil.WriteFile(path, []byte(file.Data), 0777); err != nil {
 				return err
 			}
 		} else {
@@ -52,4 +53,18 @@ func GetConfigFiles(body []byte) ([]datastructures.File, error) {
 
 		return files, nil
 	}
+}
+
+// RunCommand runs a command in a specified directory
+func RunCommand(directory string, args ...string) ([]byte, []byte, error) {
+	var o, e bytes.Buffer
+
+	cmd := exec.Command(args[0], args[1:]...)
+	cmd.Stdout = &o
+	cmd.Stderr = &e
+	cmd.Dir = directory
+
+	err := cmd.Run()
+
+	return o.Bytes(), e.Bytes(), err
 }

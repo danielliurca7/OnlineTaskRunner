@@ -13,9 +13,8 @@
 </template>
 
 <script>
+import { mapGetters, mapActions } from "vuex";
 import axios from "axios";
-
-import { mapGetters } from "vuex";
 
 import { codemirror } from "vue-codemirror";
 
@@ -29,10 +28,27 @@ export default {
   components: {
     codemirror
   },
-  props: ["file", "height"],
+  props: ["path", "height"],
   watch: {
-    file: function(newVal) {
-      this.code = newVal.data;
+    path: function(newVal, oldVal) {
+      if (oldVal != null) {
+        this.changeFile({
+          workspace: this.workspace,
+          path: oldVal,
+          newVal: this.code
+        });
+      }
+
+      var data = this.getWorkspaceFile(
+        this.$route.params.course,
+        this.$route.params.series,
+        this.$route.params.year,
+        this.$route.params.assignmentname,
+        this.$route.params.owner,
+        newVal
+      ).data;
+
+      this.code = data;
       this.last_code = this.code;
     },
     height: function(height) {
@@ -41,6 +57,7 @@ export default {
   },
   data() {
     return {
+      workspace: {},
       code: "",
       last_code: "",
       cmOptions: {
@@ -62,42 +79,193 @@ export default {
     };
   },
   computed: {
-    ...mapGetters(["getUsername"]),
+    ...mapGetters([
+      "getUserinfo",
+      "getUsername",
+      "getToken",
+      "getWorkspaces",
+      "getWorkspaceFile"
+    ]),
     codemirror() {
       return this.$refs.myCm.codemirror;
     }
   },
   mounted() {
-    axios
-      .post("http://localhost:8000/api/get", {
-        owner: this.getUsername,
-        subject: "APD",
-        assignmentname: "Tema de smecherie",
-        year: 2019
-      })
-      .then(response => {
-        console.log(response.data);
-      })
-      .catch(error => {
-        console.log(error);
-      });
+    this.workspace = {
+      owner: this.$route.params.owner,
+      course: this.$route.params.course,
+      assignmentname: this.$route.params.assignmentname,
+      year: parseInt(this.$route.params.year),
+      series: this.$route.params.series,
+      folder: []
+    };
+
+    this.codemirror.setSize("100%", this.height + "px");
+
+    this.$options.sockets.change = change => {
+      let ch = change.update;
+
+      if (change.sender != this.getUsername) {
+        var sameFile =
+          this.workspace.owner === ch.workspace.owner &&
+          this.workspace.course === ch.workspace.course &&
+          this.workspace.series === ch.workspace.series &&
+          this.workspace.year === ch.workspace.year &&
+          this.workspace.assignmentname === ch.workspace.assignmentname &&
+          JSON.stringify(this.workspace.folder.concat(this.path)) ===
+            JSON.stringify(ch.workspace.folder.concat(ch.path));
+
+        var code;
+
+        if (sameFile) {
+          code = this.code;
+        } else {
+          code = this.getWorkspaceFile(
+            ch.workspace.course,
+            ch.workspace.series,
+            ch.workspace.year,
+            ch.workspace.assignmentname,
+            ch.workspace.owner,
+            ch.workspace.folder.concat(ch.path)
+          ).data;
+        }
+
+        var last = [];
+        var start = ch.change.position;
+        var end = ch.change.position + ch.change.previous.length;
+
+        if (code.length >= end) {
+          last = code.slice(end, code.length);
+        }
+
+        if (sameFile) {
+          var cursor_pos = {
+              line: this.codemirror.doc.getCursor().line,
+              ch: this.codemirror.doc.getCursor().ch
+            },
+            i = 0,
+            start_ch = 0,
+            end_ch = 0;
+
+          while (cursor_pos.ch >= 0) {
+            i++;
+            if (cursor_pos.line === 0) {
+              cursor_pos.ch--;
+            }
+            if (code[i] === "\n") {
+              cursor_pos.line--;
+            }
+          }
+
+          for (var j = start; j > 0; j--) {
+            if (code[j] === "\n") {
+              start_ch = start - j - 1;
+              break;
+            }
+          }
+
+          for (j = end; j < code.length; j++) {
+            if (code[j] === "\n") {
+              end_ch = j;
+              break;
+            }
+          }
+
+          if (i > start && i < end) {
+            var lines = code.split("\n").map(x => x.length);
+            var s = 0,
+              line,
+              char;
+            for (j = 0; j < lines.length; j++) {
+              s += lines[j] + 1;
+              if (s > start) {
+                s -= lines[j] + 1;
+                line = j;
+                char = start - s;
+                break;
+              }
+            }
+            this.cursor_pos = {
+              line: line,
+              ch: char
+            };
+          } else if (i > start) {
+            var lines_current = ch.change.current.split("\n");
+            var lines_previous = ch.change.previous.split("\n");
+
+            var line_difference = lines_current.length - lines_previous.length;
+
+            var ch_difference = 0;
+
+            if (i <= end_ch) {
+              ch_difference =
+                lines_current[lines_current.length - 1].length -
+                lines_previous[lines_previous.length - 1].length;
+
+              if (lines_current.length === 1) {
+                ch_difference += start_ch;
+              }
+              if (lines_previous.length === 1) {
+                ch_difference -= start_ch;
+              }
+            }
+
+            this.cursor_pos = {
+              line: this.codemirror.doc.getCursor().line + line_difference,
+              ch: this.codemirror.doc.getCursor().ch + ch_difference
+            };
+          }
+        }
+
+        code = code.slice(0, start) + ch.change.current + last;
+
+        if (sameFile) {
+          this.code = code;
+          this.last_code = this.code;
+          this.received = true;
+        } else {
+          this.changeFile({
+            workspace: ch.workspace,
+            path: ch.path,
+            newVal: code
+          });
+        }
+      }
+    };
+
+    this.$socket.emit("subscribe", {
+      token: this.getToken,
+      workspace: {
+        assignmentname: this.$route.params.assignmentname,
+        course: this.$route.params.course,
+        folder: [],
+        owner: this.$route.params.owner,
+        series: this.$route.params.series,
+        year: parseInt(this.$route.params.year)
+      }
+    });
   },
   beforeDestroy() {
-    axios
-      .post("http://localhost:8000/api/clear", {
-        owner: this.getUsername,
-        subject: "APD",
-        assignmentname: "Tema de smecherie",
-        year: 2019
-      })
-      .then(response => {
-        console.log(response.data);
-      })
-      .catch(error => {
-        console.log(error);
+    this.$socket.emit("unsubscribe", this.workspace);
+
+    // axios.post("http://localhost:3000/api/stop", this.workspace, {
+    //   headers: { Authorization: this.getToken }
+    // });
+
+    axios.post("http://localhost:3000/api/commit", this.workspace, {
+      headers: { Authorization: this.getToken }
+    });
+
+    if (this.path != null) {
+      this.changeFile({
+        workspace: this.workspace,
+        path: this.path,
+        newVal: this.code
       });
+    }
   },
   methods: {
+    ...mapActions(["changeFile"]),
     onCmCodeChange() {
       var a = this.code;
       var b = this.last_code;
@@ -135,21 +303,26 @@ export default {
 
       this.last_code = this.code;
 
-      axios
-        .post("http://localhost:8000/api/change", {
-          fileinfo: this.file.info,
+      this.$socket.emit("change", {
+        token: this.getToken,
+        sender: this.getUsername,
+        update: {
+          workspace: {
+            owner: this.$route.params.owner,
+            course: this.$route.params.course,
+            assignmentname: this.$route.params.assignmentname,
+            year: parseInt(this.$route.params.year),
+            series: this.$route.params.series,
+            folder: []
+          },
+          path: this.path,
           change: {
             position: start,
             current: a,
             previous: b
           }
-        })
-        .then(response => {
-          console.log(response);
-        })
-        .catch(error => {
-          console.log(error);
-        });
+        }
+      });
     },
     onCursorActivity() {
       if (!this.received) {

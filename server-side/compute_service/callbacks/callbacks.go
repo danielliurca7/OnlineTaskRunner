@@ -1,14 +1,13 @@
 package callbacks
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
-	"os/exec"
 
 	datastructures "../data_structures"
 	"../utils"
@@ -58,24 +57,20 @@ func BuildImage(w http.ResponseWriter, r *http.Request) {
 	h.Write([]byte(image.Workspace.Name()))
 	imageName := string(hex.EncodeToString(h.Sum(nil)))
 
-	cmd := exec.Command("docker", "build", ".", "-t", imageName, "--no-cache")
-	var e bytes.Buffer
-	cmd.Stderr = &e
-	cmd.Dir = image.Workspace.ToString()
+	_, cmdErr, err := utils.RunCommand(
+		image.Workspace.ToString(),
+		"docker", "build", ".", "-t", imageName, "--no-cache",
+	)
 
-	// Run the command
-	err = cmd.Run()
 	if err != nil {
 		log.Println("Build failed with", err)
-		w.WriteHeader(400)
-		w.Write(append([]byte("Build failed\n"), e.Bytes()...))
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Build failed"))
+	} else if len(cmdErr) != 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(append([]byte("Build failed"), cmdErr...))
 	} else {
-		if len([]byte(e.Bytes())) == 0 {
-			w.Write(append([]byte("Build successful\n"), e.Bytes()...))
-		} else {
-			w.WriteHeader(400)
-			w.Write(append([]byte("Build failed\n"), e.Bytes()...))
-		}
+		w.Write([]byte("Build successful"))
 	}
 
 }
@@ -109,6 +104,7 @@ func RunContainer(w http.ResponseWriter, r *http.Request) {
 	h := sha1.New()
 	h.Write([]byte(ws.Name()))
 	imageName := string(hex.EncodeToString(h.Sum(nil)))
+	h = sha1.New()
 	h.Write([]byte(ws.ToString()))
 	instanceName := string(hex.EncodeToString(h.Sum(nil)))
 
@@ -116,38 +112,43 @@ func RunContainer(w http.ResponseWriter, r *http.Request) {
 
 	if err := utils.CopyFilesToMemory(ws, files); err != nil {
 		log.Println(err)
-		w.WriteHeader(500)
+		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte("Could not get copy files into memory"))
 		return
 	}
 
-	cmd := exec.Command("docker", "build", ".", "-t", instanceName, "--no-cache")
-	var o, e bytes.Buffer
-	cmd.Stderr = &e
-	cmd.Dir = ws.ToString()
-
-	if err := cmd.Run(); err != nil {
-		log.Println("Build failed with", err)
-		w.WriteHeader(400)
-		w.Write(append([]byte("Run failed\n"), e.Bytes()...))
+	if _, _, err = utils.RunCommand(
+		ws.ToString(),
+		"docker", "run", "--rm", "-t", "-d", "--name", instanceName, imageName,
+	); err != nil {
+		log.Println(err)
 	}
 
-	cmd = exec.Command("docker", "run", "--rm", instanceName)
-	cmd.Stdout = &o
-	cmd.Stderr = &e
+	if _, _, err := utils.RunCommand(
+		ws.ToString(),
+		"docker", "cp", ".", fmt.Sprintf("%s:/app", instanceName),
+	); err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Could not copy file"))
+		return
+	}
+
+	cmdOut, cmdErr, err := utils.RunCommand(
+		ws.ToString(),
+		"docker", "exec", instanceName, "./run.sh",
+	)
 
 	// Run the command
-	if err = cmd.Run(); err != nil {
+	if err != nil {
 		log.Println("Run failed with", err)
-		w.WriteHeader(400)
-		w.Write(append([]byte("Run failed\n"), e.Bytes()...))
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Run failed\n"))
+	} else if len(cmdErr) != 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(append([]byte("Run failed\n"), cmdErr...))
 	} else {
-		if len([]byte(e.Bytes())) == 0 {
-			w.Write(o.Bytes())
-		} else {
-			w.WriteHeader(400)
-			w.Write(append([]byte("Run failed\n"), e.Bytes()...))
-		}
+		w.Write(cmdOut)
 	}
 }
 
@@ -157,7 +158,7 @@ func StopContainer(w http.ResponseWriter, r *http.Request) {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Could not read request body"))
 		return
 	}
@@ -166,7 +167,7 @@ func StopContainer(w http.ResponseWriter, r *http.Request) {
 
 	if err := json.Unmarshal(body, &ws); err != nil {
 		log.Println(err)
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("Could not read request body"))
 		return
 	}
@@ -175,23 +176,17 @@ func StopContainer(w http.ResponseWriter, r *http.Request) {
 	h.Write([]byte(ws.ToString()))
 	instanceName := string(hex.EncodeToString(h.Sum(nil)))
 
-	// Format the make build command
-	cmd := exec.Command("docker", "stop", instanceName)
-	var e bytes.Buffer
-	cmd.Stderr = &e
+	_, cmdErr, err := utils.RunCommand(
+		ws.ToString(),
+		"docker", "stop", instanceName,
+	)
 
-	// Run the command
-
-	if err := cmd.Run(); err != nil {
+	if err != nil {
 		log.Println("Stop failed with", err)
-		w.WriteHeader(400)
-		w.Write(append([]byte("Stop failed\n"), e.Bytes()...))
-	} else {
-		if len([]byte(e.Bytes())) == 0 {
-			w.Write([]byte("Stop succesful\n"))
-		} else {
-			w.WriteHeader(400)
-			w.Write(append([]byte("Stop failed\n"), e.Bytes()...))
-		}
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Stop failed"))
+	} else if len(cmdErr) != 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(append([]byte("Stop failed\n"), cmdErr...))
 	}
 }

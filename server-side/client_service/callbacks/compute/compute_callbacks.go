@@ -40,7 +40,7 @@ func BuildImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, status, err := utils.MakeRequest("POST", "http://files:5000/api/build", body)
+	data, status, err := utils.MakeRequest("POST", "http://compute:5000/api/build", body)
 	if err != nil {
 		log.Println(err)
 	}
@@ -79,7 +79,7 @@ func RunContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, status, err := utils.MakeRequest("POST", "http://files:5000/api/run", body)
+	data, status, err := utils.MakeRequest("POST", "http://compute:5000/api/run", body)
 	if err != nil {
 		log.Println(err)
 	}
@@ -118,7 +118,7 @@ func StopContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, status, err := utils.MakeRequest("POST", "http://files:5000/api/stop", body)
+	data, status, err := utils.MakeRequest("POST", "http://compute:5000/api/stop", body)
 	if err != nil {
 		log.Println(err)
 	}

@@ -8,11 +8,11 @@
 
         <li
           class="list-group-item btn"
-          v-for="subject in getStudentSubjects"
-          :key="subject.name"
-          @click="setTab(subject.name)"
+          v-for="course in getStudentCourses"
+          :key="course.name"
+          @click="openCourse(course.name)"
         >
-          {{ subject.name }}
+          {{ course.name }}
         </li>
       </ul>
     </div>
@@ -20,23 +20,15 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from "vuex";
+import { mapGetters } from "vuex";
 
 export default {
   name: "SubjectSidebar",
   computed: {
-    ...mapGetters(["getStudentSubjects", "getTabs"])
+    ...mapGetters(["getStudentCourses"])
   },
   methods: {
-    ...mapActions(["openTab"]),
-    setTab: function(name) {
-      var tabs = JSON.parse(JSON.stringify(this.getTabs));
-
-      // if tab is not already opened, open it
-      if (tabs.filter(tab => tab.name === name).length === 0) {
-        this.openTab(name);
-      }
-
+    openCourse: function(name) {
       // go to the clicked tab
       this.$router.push("/subject/" + name);
     }

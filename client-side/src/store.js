@@ -6,108 +6,52 @@ Vue.use(Vuex);
 export default new Vuex.Store({
   state: {
     username: "",
+    userinfo: {},
     token: "",
-    type: "",
     open_tabs: [],
+    workspaces: [],
 
-    // should pull from server
-    student_subjects: [
-      {
-        name: "Algoritmi Paraleli si Distribuiti",
-        labs: [
-          {
-            name: "Laboratorul 1",
-            total: 0.25,
-            deadline: new Date("03-19-2020"),
-            support: "Acesta este laboratorul 1"
-          },
-          {
-            name: "Laboratorul 2",
-            total: 0.25,
-            deadline: new Date("03-26-2020"),
-            support: "Acesta este laboratorul 2"
-          }
-        ],
-        homeworks: [
-          {
-            name: "Tema 1",
-            total: 1,
-            deadline: new Date("04-10-2020"),
-            support: "Aceasta este tema 1"
-          }
-        ]
-      },
-      {
-        name: "Programarea Calculatoarelor",
-        labs: [
-          {
-            name: "Laboratorul 1",
-            result: 80,
-            total: 0.25,
-            deadline: new Date("10-16-2018"),
-            support: "Acesta este laboratorul 1"
-          }
-        ],
-        homeworks: [
-          {
-            name: "Tema 1",
-            result: 90,
-            total: 1,
-            deadline: new Date("11-09-2018"),
-            support: "Aceasta este tema 1"
-          }
-        ]
-      }
-    ],
-    assistent_subjects: [
-      {
-        name: "Programarea Calculatoarelor",
-        assignments: [
-          {
-            name: "Tema 1",
-            students: [
-              {
-                name: "stud1",
-                grade: "",
-                gradetime: "",
-                graded_by: ""
-              },
-              {
-                name: "stud2",
-                grade: "",
-                gradetime: "",
-                graded_by: ""
-              },
-              {
-                name: "stud3",
-                grade: "",
-                gradetime: "",
-                graded_by: ""
-              }
-            ]
-          }
-        ]
-      }
-    ]
+    student_courses: [],
+    assistant_courses: []
   },
   mutations: {
     setUsername: (state, username) => (state.username = username),
+    setUserinfo: (state, userinfo) => (state.userinfo = userinfo),
     setToken: (state, token) => (state.token = token),
-    setType: (state, type) => (state.type = type),
-    openTab: (state, tabName) => state.open_tabs.push({ name: tabName }),
-    closeTab: (state, tabName) =>
-      (state.open_tabs = state.open_tabs.filter(el => el.name !== tabName)),
+    addWorkspace: (state, workspace) => state.workspaces.push(workspace),
+    changeFile: (state, payload) =>
+      (state.workspaces
+        .find(
+          ws =>
+            ws.workspace.course === payload.workspace.course &&
+            ws.workspace.series === payload.workspace.series &&
+            ws.workspace.year === parseInt(payload.workspace.year) &&
+            ws.workspace.assignmentname === payload.workspace.assignmentname &&
+            ws.workspace.owner === payload.workspace.owner
+        )
+        .files.find(
+          file => JSON.stringify(file.path) === JSON.stringify(payload.path)
+        ).data = payload.newVal),
+    setStudentCourses: (state, student_courses) =>
+      (state.student_courses = student_courses),
+    setAssistantCourses: (state, assistant_courses) =>
+      (state.assistant_courses = assistant_courses),
+    openTab: (state, assignment) => state.open_tabs.push(assignment),
+    closeTab: (state, assignment) =>
+      (state.open_tabs = state.open_tabs.filter(
+        el => el.name !== assignment.name
+      )),
     grade: (state, payload) => {
-      state.assistent_subjects
-        .find(subject => subject.name === payload.subject_name)
+      state.assistant_courses
+        .find(course => course.name === payload.course_name)
         .assignments.find(
           assignment => assignment.name === payload.assignment_name
         )
         .students.find(student => student.name === payload.student_name).grade =
         payload.grade;
 
-      state.assistent_subjects
-        .find(subject => subject.name === payload.subject_name)
+      state.assistant_courses
+        .find(course => course.name === payload.course_name)
         .assignments.find(
           assignment => assignment.name === payload.assignment_name
         )
@@ -115,8 +59,8 @@ export default new Vuex.Store({
           student => student.name === payload.student_name
         ).gradetime = payload.gradetime;
 
-      state.assistent_subjects
-        .find(subject => subject.name === payload.subject_name)
+      state.assistant_courses
+        .find(course => course.name === payload.course_name)
         .assignments.find(
           assignment => assignment.name === payload.assignment_name
         )
@@ -129,11 +73,23 @@ export default new Vuex.Store({
     setUsername({ commit }, username) {
       commit("setUsername", username);
     },
+    setUserinfo({ commit }, userinfo) {
+      commit("setUserinfo", userinfo);
+    },
     setToken({ commit }, token) {
       commit("setToken", token);
     },
-    setType({ commit }, type) {
-      commit("setType", type);
+    addWorkspace({ commit }, workspace) {
+      commit("addWorkspace", workspace);
+    },
+    changeFile({ commit }, payload) {
+      commit("changeFile", payload);
+    },
+    setStudentCourses({ commit }, student_courses) {
+      commit("setStudentCourses", student_courses);
+    },
+    setAssistantCourses({ commit }, assistant_courses) {
+      commit("setAssistantCourses", assistant_courses);
     },
     openTab({ commit }, tabName) {
       commit("openTab", tabName);
@@ -147,35 +103,90 @@ export default new Vuex.Store({
   },
   getters: {
     getUsername: state => state.username,
+    getUserinfo: state => state.userinfo,
     getToken: state => state.token,
-    getType: state => state.type,
-    getStudentSubjects: state => state.student_subjects,
-    getAssistentSubjects: state => state.assistent_subjects,
+    getWorkspaceFile: state => (
+      course,
+      series,
+      year,
+      assignment,
+      owner,
+      path
+    ) =>
+      state.workspaces
+        .find(
+          workspace =>
+            workspace.workspace.course === course &&
+            workspace.workspace.series === series &&
+            workspace.workspace.year === parseInt(year) &&
+            workspace.workspace.assignmentname === assignment &&
+            workspace.workspace.owner === owner
+        )
+        .files.find(file => JSON.stringify(file.path) === JSON.stringify(path)),
+    getFilesByStudent: state => (course, year, series, assignment, owner) =>
+      state.files.find(
+        file =>
+          file.course === course &&
+          file.year === year &&
+          file.series === series &&
+          file.assignment === assignment &&
+          file.owner === owner
+      ).files,
+    getStudentCourses: state => state.student_courses,
+    getAssistantCourses: state => state.assistant_courses,
     getTabs: state => state.open_tabs,
     getLabs: state => name =>
-      state.student_subjects
-        .find(subject => subject.name === name)
-        .labs.filter(lab => Date.now() < lab.deadline),
+      state.student_courses
+        .filter(course => course.name === name)
+        .flatMap(course =>
+          course.labs.map(lab => ({
+            course: course.name,
+            year: course.year,
+            series: course.series,
+            abbreviation: course.abbreviation,
+            name: lab.name,
+            points: lab.points,
+            total: lab.total,
+            deadline: lab.deadline
+          }))
+        )
+        .filter(assignment => Date.now() < assignment.deadline),
     getHomeworks: state => name =>
-      state.student_subjects
-        .find(subject => subject.name === name)
-        .homeworks.filter(homework => Date.now() < homework.deadline),
+      state.student_courses
+        .filter(course => course.name === name)
+        .flatMap(course =>
+          course.homeworks.map(homework => ({
+            course: course.name,
+            year: course.year,
+            series: course.series,
+            abbreviation: course.abbreviation,
+            name: homework.name,
+            points: homework.points,
+            total: homework.total,
+            deadline: homework.deadline
+          }))
+        )
+        .filter(assignment => Date.now() < assignment.deadline),
     getAssignments: state =>
-      state.student_subjects
-        .flatMap(subject =>
-          subject.labs
+      state.student_courses
+        .flatMap(course =>
+          course.labs
             .map(lab => ({
-              type: "lab",
-              subjectName: subject.name,
+              course: course.name,
+              year: course.year,
+              series: course.series,
+              abbreviation: course.abbreviation,
               name: lab.name,
               points: lab.points,
               total: lab.total,
               deadline: lab.deadline
             }))
             .concat(
-              subject.homeworks.map(homework => ({
-                type: "homework",
-                subjectName: subject.name,
+              course.homeworks.map(homework => ({
+                course: course.name,
+                year: course.year,
+                series: course.series,
+                abbreviation: course.abbreviation,
                 name: homework.name,
                 points: homework.points,
                 total: homework.total,
@@ -185,19 +196,25 @@ export default new Vuex.Store({
         )
         .filter(assignment => Date.now() < assignment.deadline),
     getAllResults: state =>
-      state.student_subjects
-        .flatMap(subject =>
-          subject.labs
+      state.student_courses
+        .flatMap(course =>
+          course.labs
             .map(lab => ({
-              subjectName: subject.name,
+              course: course.name,
+              year: course.year,
+              series: course.series,
+              abbreviation: course.abbreviation,
               name: lab.name,
               result: lab.result,
               total: lab.total,
               deadline: lab.deadline
             }))
             .concat(
-              subject.homeworks.map(homework => ({
-                subjectName: subject.name,
+              course.homeworks.map(homework => ({
+                course: course.name,
+                year: course.year,
+                series: course.series,
+                abbreviation: course.abbreviation,
                 name: homework.name,
                 result: homework.result,
                 total: homework.total,
@@ -207,23 +224,23 @@ export default new Vuex.Store({
         )
         .filter(assignment => Date.now() > assignment.deadline),
     getResults: state => name =>
-      state.student_subjects
-        .find(subject => subject.name === name)
+      state.student_courses
+        .find(course => course.name === name)
         .homeworks.filter(homework => Date.now() > homework.deadline)
         .concat(
-          state.student_subjects
-            .find(subject => subject.name === name)
+          state.student_courses
+            .find(course => course.name === name)
             .labs.filter(lab => Date.now() > lab.deadline)
         ),
     getAssignmentsToGrade: state => name =>
-      state.assistent_subjects
-        .find(subject => subject.name === name)
+      state.assistant_courses
+        .find(course => course.name === name)
         .assignments.flatMap(assignment => ({
           name: assignment.name
         })),
-    getAssignmentStudents: state => (subject_name, assignment_name) =>
-      state.assistent_subjects
-        .find(subject => subject.name === subject_name)
+    getAssignmentStudents: state => (course_name, assignment_name) =>
+      state.assistant_courses
+        .find(course => course.name === course_name)
         .assignments.find(assignment => assignment.name === assignment_name)
         .students
   }

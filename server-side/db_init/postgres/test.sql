@@ -12,7 +12,7 @@ INSERT INTO series (school_year, name) VALUES (2020, 'CB');
 INSERT INTO series (school_year, name) VALUES (2020, 'CC');
 
 INSERT INTO groups (group_no, series_id) VALUES (315, 1);
-INSERT INTO groups (group_no, series_id) VALUES (335, 1);
+INSERT INTO groups (group_no, series_id) VALUES (335, 2);
 
 INSERT INTO courses (name, series_id, abbreviation, professor) VALUES ('Programarea Calculatoarelor', 1, 'PC', 'prof1');
 INSERT INTO courses (name, series_id, abbreviation, professor) VALUES ('Algoritmi Paraleli si Distribuiti', 1, 'APD', 'prof2');

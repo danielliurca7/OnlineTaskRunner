@@ -1,19 +1,25 @@
 package utils
 
 import (
+	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	// postgres driver
 	_ "github.com/lib/pq"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	datastructures "../data_structures"
 )
 
 var postgres *sql.DB
-var mongodb *mongo.Client
+var mongodb *mongo.Database
+var mongoctx context.Context
 
 func init() {
 	var err error
@@ -22,18 +28,23 @@ func init() {
 		panic(err)
 	}
 
-	// if mongodb, err = mongo.NewClient(options.Client().ApplyURI("root:root@mongo:27017)")); err != nil {
-	// 	panic(err)
-	// }
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://root:root@mongo:27017"))
+	if err != nil {
+		panic(err)
+	}
 
-	// ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	// defer cancel()
+	mongoctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
 
-	// if err := mongodb.Connect(ctx); err != nil {
-	// 	panic(err)
-	// }
+	if err := client.Connect(mongoctx); err != nil {
+		panic(err)
+	}
+
+	mongodb = client.Database("otr_data")
 }
 
+// VerifyCredentials receives a credentials datastructures
+// and query the database to see if they are valid
 func VerifyCredentials(credentials datastructures.Credentials) (bool, error) {
 	sum := sha256.Sum256([]byte(credentials.Password))
 
@@ -51,6 +62,7 @@ func VerifyCredentials(credentials datastructures.Credentials) (bool, error) {
 	return true, nil
 }
 
+// GetUserData returns the data neccesary to build a token for a user
 func GetUserData(username string) (datastructures.UserData, error) {
 	var userdata datastructures.UserData
 	userdata.Name = username
@@ -145,4 +157,26 @@ func GetUserData(username string) (datastructures.UserData, error) {
 	}
 
 	return userdata, nil
+}
+
+// GetCourses returns courses for an username and a collection
+func GetCourses(username string, collection string) ([]byte, error) {
+	col := mongodb.Collection(collection)
+
+	var course bson.M
+
+	if err := col.FindOne(
+		mongoctx,
+		bson.M{"name": username},
+		options.FindOne().SetProjection(bson.M{"_id": 0, "courses": 1}),
+	).Decode(&course); err != nil && err.Error() != "mongo: no documents in result" {
+		return nil, err
+	}
+
+	b, err := json.Marshal(course)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }

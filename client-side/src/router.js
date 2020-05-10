@@ -1,6 +1,6 @@
 import Vue from "vue";
 import Router from "vue-router";
-import Home from "./views/Home.vue";
+import Home from "./views/frontpage/Home.vue";
 
 Vue.use(Router);
 
@@ -10,73 +10,55 @@ export default new Router({
   routes: [
     {
       path: "/",
-      name: "home",
       component: Home
     },
     {
       path: "/about",
-      name: "about",
-      component: () => import("./views/About.vue")
+      component: () => import("./views/frontpage/About.vue")
     },
     {
       path: "/contact",
-      name: "contact",
-      component: () => import("./views/Contact.vue")
+      component: () => import("./views/frontpage/Contact.vue")
     },
     {
       path: "/login",
-      name: "login",
-      component: () => import("./views/Login.vue")
+      component: () => import("./views/frontpage/Login.vue")
     },
     {
       path: "/dashboard",
-      name: "dashboard",
-      component: () => import("./views/Dashboard.vue")
+      component: () => import("./views/subject/Dashboard.vue")
     },
     {
       path: "/subjectoverview",
-      name: "subjectoverview",
-      component: () => import("./views/SubjectOverview.vue")
+      component: () => import("./views/subject/SubjectOverview.vue")
     },
     {
       path: "/subject/:name",
-      name: "subject",
-      component: () => import("./views/Subject.vue")
+      component: () => import("./views/subject/Subject.vue")
     },
     {
       path: "/results",
-      name: "results",
-      component: () => import("./views/Results.vue")
+      component: () => import("./views/results/Results.vue")
     },
     {
       path: "/gradeoverview",
-      name: "gradeoverview",
-      component: () => import("./views/GradeOverview.vue")
+      component: () => import("./views/grade/GradeOverview.vue")
     },
     {
-      path: "/grade/:name",
-      name: "grade",
-      component: () => import("./views/Grade.vue")
+      path: "/grade/:course/:series/:year",
+      component: () => import("./views/grade/Grade.vue")
     },
     {
-      path: "/grade/:subject/:assignment",
-      name: "gradeassignment",
-      component: () => import("./views/GradeAssignment.vue")
+      path: "/grade/:course/:series/:year/:assignment",
+      component: () => import("./views/grade/GradeAssignment.vue")
     },
     {
       path: "/profile",
-      name: "profile",
-      component: () => import("./views/Profile.vue")
+      component: () => import("./views/profile/Profile.vue")
     },
     {
-      path: "/lab/:name",
-      name: "lab",
-      component: () => import("./views/Lab.vue")
-    },
-    {
-      path: "/homework/:name",
-      name: "homework",
-      component: () => import("./views/Homework.vue")
+      path: "/workspace/:course/:series/:year/:assignmentname/:owner",
+      component: () => import("./views/workspace/Workspace.vue")
     }
   ]
 });

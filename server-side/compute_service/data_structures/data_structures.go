@@ -14,7 +14,7 @@ WORKDIR /app
 COPY . .
 RUN apt update
 RUN ./build.sh
-CMD ./run.sh`, image)
+CMD tail -f /dev/null`, image)
 }
 
 // Workspace is a struct that defines the folder for an assignment

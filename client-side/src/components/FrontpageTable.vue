@@ -14,7 +14,7 @@
         :key="index"
         @click="openAssignment(assignment)"
       >
-        <td>{{ assignment.subjectName }}</td>
+        <td>{{ assignment.course }}</td>
         <td>{{ assignment.name }}</td>
         <td>
           {{
@@ -31,24 +31,33 @@
 </template>
 
 <script>
-import { mapGetters } from "vuex";
+import { mapGetters, mapActions } from "vuex";
 
 export default {
   name: "FrontpageTable",
   computed: {
-    ...mapGetters(["getAssignments"])
+    ...mapGetters(["getUsername", "getAssignments", "getTabs"])
   },
   methods: {
+    ...mapActions(["openTab"]),
     openAssignment(assignment) {
-      if (assignment.type === "lab") {
-        this.$router.push(
-          "/lab/" + assignment.subjectName + ":" + assignment.name
-        );
-      } else if (assignment.type === "homework") {
-        this.$router.push(
-          "/homework/" + assignment.subjectName + ":" + assignment.name
-        );
+      var tabs = JSON.parse(JSON.stringify(this.getTabs));
+
+      // if tab is not already opened, open it
+      if (tabs.filter(tab => tab.name === assignment.name).length === 0) {
+        this.openTab(assignment);
       }
+
+      this.$router.push(
+        [
+          "/workspace",
+          assignment.course,
+          assignment.series,
+          assignment.year,
+          assignment.name,
+          this.getUsername
+        ].join("/")
+      );
     }
   }
 };

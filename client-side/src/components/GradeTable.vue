@@ -4,8 +4,6 @@
       class="table table-bordered table-condensed table-striped table-hover"
     >
       <tr>
-        <th>Subject</th>
-        <th>Assignment</th>
         <th>Student</th>
         <th>Grade</th>
         <th>Grade Time</th>
@@ -14,13 +12,12 @@
       <tr
         class="table-row"
         v-for="(assignment, index) in getAssignmentStudents(
-          $route.params.subject,
+          $route.params.course,
           $route.params.assignment
         )"
         :key="index"
+        @click="openAssignment(assignment)"
       >
-        <td>{{ $route.params.subject }}</td>
-        <td>{{ $route.params.assignment }}</td>
         <td>{{ assignment.name }}</td>
         <td>{{ assignment.grade }}</td>
         <td>{{ assignment.gradetime }}</td>
@@ -58,7 +55,7 @@ export default {
       var graded_by = this.getUsername;
 
       this.gradeAssignment({
-        subject_name: this.$route.params.subject,
+        course_name: this.$route.params.course,
         assignment_name: this.$route.params.assignment,
         student_name: student,
         grade: grade,
@@ -67,6 +64,20 @@ export default {
       });
 
       this.grade = [];
+    },
+    openAssignment(assignment) {
+      this.$router.push(
+        "/workspace/" +
+          this.$route.params.course +
+          "/" +
+          this.$route.params.series +
+          "/" +
+          this.$route.params.year +
+          "/" +
+          this.$route.params.assignment +
+          "/" +
+          assignment.name
+      );
     }
   },
   data() {

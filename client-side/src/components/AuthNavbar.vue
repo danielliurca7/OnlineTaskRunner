@@ -9,12 +9,12 @@
             class="ml-2"
             v-for="tab in getTabs"
             :key="tab.name"
-            :to="{ name: 'subject', params: { name: tab.name } }"
+            @click="open(tab)"
           >
-            <span> {{ tab.name }} </span>
+            <span> {{ tab.abbreviation }} {{ tab.name }} </span>
             <b-button
               type="button"
-              @click.prevent.stop="close(tab.name)"
+              @click.prevent.stop="close(tab)"
               class="close ml-2"
               aria-label="Close"
             >
@@ -24,21 +24,21 @@
         </b-navbar-nav>
       </b-collapse>
 
-      <b-navbar-nav class="ml-auto" v-if="getType == '1' || getType == '12'">
+      <b-navbar-nav class="ml-auto" v-if="getUserinfo.student.courses">
         <b-nav-item to="/dashboard">Dashboard</b-nav-item>
       </b-navbar-nav>
 
-      <b-navbar-nav class="ml-auto" v-if="getType == '1' || getType == '12'">
+      <b-navbar-nav class="ml-auto" v-if="getUserinfo.student.courses">
         <b-nav-item to="/subjectoverview">Subjects</b-nav-item>
       </b-navbar-nav>
 
-      <b-navbar-nav class="ml-auto" v-if="getType == '1' || getType == '12'">
+      <b-navbar-nav class="ml-auto" v-if="getUserinfo.student.courses">
         <b-nav-item to="/results">Results</b-nav-item>
       </b-navbar-nav>
 
       <b-navbar-nav
         class="ml-auto"
-        v-if="getType == '2' || getType == '12' || getType == '23'"
+        v-if="getUserinfo.assistant.courses || getUserinfo.professor.courses"
       >
         <b-nav-item to="/gradeoverview">Grade</b-nav-item>
       </b-navbar-nav>
@@ -54,12 +54,12 @@
               class="ml-2"
               v-for="tab in getTabs"
               :key="tab.name"
-              :to="{ name: 'subject', params: { name: tab.name } }"
+              @click="open(tab)"
             >
-              <span> {{ tab.name }} </span>
+              <span> {{ tab.abbreviation }} {{ tab.name }} </span>
               <b-button
                 type="button"
-                @click.prevent.stop="close(tab.name)"
+                @click.prevent.stop="close(tab)"
                 class="close ml-2"
                 aria-label="Close"
               >
@@ -83,41 +83,68 @@ export default {
       toggled: false
     };
   },
+  computed: {
+    ...mapGetters(["getUsername", "getUserinfo", "getTabs"])
+  },
   methods: {
-    ...mapActions(["setUsername", "closeTab", "setType"]),
-    close: function(tabName) {
+    ...mapActions(["closeTab", "setUserinfo", "setUsername", "setToken"]),
+    open: function(tab) {
+      if (
+        this.$route.params.course === tab.course &&
+        this.$route.params.series === tab.series &&
+        this.$route.params.year === tab.year &&
+        this.$route.params.assignmentname === tab.name
+      ) {
+        this.$router.push(
+          [
+            "/workspace",
+            tab.course,
+            tab.series,
+            tab.year,
+            tab.name,
+            this.getUsername
+          ].join("/")
+        );
+      }
+    },
+    close: function(tab) {
       // close the tab with name tabName
-      this.closeTab(tabName);
+      this.closeTab(tab);
 
       var tabs = JSON.parse(JSON.stringify(this.getTabs));
 
-      // if there are no more tabs left, go to dashboard
-      // else if the current tab has the name tabName
-      if (tabs.length === 0) {
+      if (tabs.length === 0 && this.$route.fullPath != "/dashboard") {
         this.$router.push("/dashboard");
-      } else if (this.$route.params.name === tabName) {
-        this.$router.push("/subject/" + tabs.pop().name);
+      } else if (
+        this.$route.params.course === tab.course &&
+        this.$route.params.series === tab.series &&
+        parseInt(this.$route.params.year) === tab.year &&
+        this.$route.params.assignmentname === tab.name
+      ) {
+        var next_tab = tabs.pop();
+
+        this.$router.push(
+          [
+            "/workspace",
+            next_tab.course,
+            next_tab.series,
+            next_tab.year,
+            next_tab.name,
+            this.getUsername
+          ].join("/")
+        );
       }
     }
   },
-  computed: {
-    ...mapGetters(["getUsername", "getTabs", "getType"])
-  },
-  mounted() {
-    // if the username cookie is active, load it
+  created() {
     if (
-      this.$cookie.get("username") !== undefined &&
-      this.$cookie.get("username") !== null
+      localStorage.getItem("username") &&
+      localStorage.getItem("userinfo") &&
+      localStorage.getItem("token")
     ) {
-      this.setUsername(this.$cookie.get("username"));
-    }
-
-    // if the type cookie is active, load it
-    if (
-      this.$cookie.get("type") !== undefined &&
-      this.$cookie.get("type") !== null
-    ) {
-      this.setType(this.$cookie.get("type"));
+      this.setUsername(localStorage.getItem("username"));
+      this.setUserinfo(JSON.parse(localStorage.getItem("userinfo")));
+      this.setToken(localStorage.getItem("token"));
     }
   }
 };

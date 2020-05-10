@@ -6,9 +6,9 @@
     <ul class="list-group mt-3 float-right w-50 ml-3">
       <li
         class="list-group-item m-1"
-        v-for="assignment in getAssignmentsToGrade($route.params.name)"
+        v-for="assignment in getAssignmentsToGrade($route.params.course)"
         :key="assignment.name"
-        @click="grade($route.params.name, assignment.name)"
+        @click="grade(assignment.name)"
       >
         {{ assignment.name }}
       </li>
@@ -32,8 +32,17 @@ export default {
     ...mapGetters(["getAssignmentsToGrade"])
   },
   methods: {
-    grade(subject, assignment) {
-      this.$router.push("/grade/" + subject + "/" + assignment);
+    grade(assignment) {
+      this.$router.push(
+        "/grade/" +
+          this.$route.params.course +
+          "/" +
+          this.$route.params.series +
+          "/" +
+          this.$route.params.year +
+          "/" +
+          assignment
+      );
     }
   }
 };

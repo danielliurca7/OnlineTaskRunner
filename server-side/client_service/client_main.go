@@ -19,16 +19,18 @@ func main() {
 
 	r := mux.NewRouter()
 
-	r.Handle("/socket/change", utils.NewChangeServer())
+	r.Handle("/socket.io/", utils.NewChangeServer())
 
-	r.HandleFunc("/api/authenticate", database.Authenticate).Methods("GET")
+	r.HandleFunc("/api/authenticate", database.Authenticate).Methods("POST")
+	r.HandleFunc("/api/student/{name:.*}", database.GetStudentCourses).Methods("GET")
+	r.HandleFunc("/api/assistant/{name:.*}", database.GetAssistantCourses).Methods("GET")
+	r.HandleFunc("/api/professor/{name:.*}", database.GetProfessorCourses).Methods("GET")
 
-	r.HandleFunc("/api/files", files.GetFiles).Methods("GET")
+	r.HandleFunc("/api/files", files.GetFiles).Methods("POST")
 	r.HandleFunc("/api/commit", files.CommitFiles).Methods("POST")
 	r.HandleFunc("/api/create", files.CreateFile).Methods("POST")
 	r.HandleFunc("/api/delete", files.DeleteFile).Methods("DELETE")
 	r.HandleFunc("/api/rename", files.RenameFile).Methods("PUT")
-	r.HandleFunc("/api/update", files.UpdateFile).Methods("PUT")
 
 	r.HandleFunc("/api/build", compute.BuildImage).Methods("POST")
 	r.HandleFunc("/api/run", compute.RunContainer).Methods("POST")

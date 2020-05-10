@@ -17,14 +17,6 @@ export default {
     AuthNavbar,
     SubjectSidebar,
     SubjectTable
-  },
-  methods: {
-    openLab(name) {
-      this.$router.push("/lab/" + name);
-    },
-    openHomework(name) {
-      this.$router.push("/homework/" + name);
-    }
   }
 };
 </script>

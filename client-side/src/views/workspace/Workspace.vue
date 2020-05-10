@@ -1,11 +1,11 @@
 <template>
-  <div class="homework">
+  <div class="workspace">
     <div ref="navbar">
       <AuthNavbar />
     </div>
     <div>
-      <Codebox :file="file" :height="height" class="w-75 float-right" />
-      <FileSidebar @load_file="update_code($event)" class="w-25" />
+      <Codebox :path="current_path" :height="height" class="w-75 float-right" />
+      <FileSidebar @load_path="load_path($event)" class="w-25" />
     </div>
   </div>
 </template>
@@ -16,7 +16,7 @@ import FileSidebar from "@/components/FileSidebar.vue";
 import Codebox from "@/components/Codebox.vue";
 
 export default {
-  name: "lab",
+  name: "workspace",
   components: {
     AuthNavbar,
     FileSidebar,
@@ -24,13 +24,13 @@ export default {
   },
   data() {
     return {
-      file: null,
+      current_path: null,
       height: 0
     };
   },
   methods: {
-    update_code(file) {
-      this.file = file;
+    load_path(path) {
+      this.current_path = path;
     },
     resize() {
       this.height = window.innerHeight - this.$refs.navbar.clientHeight;

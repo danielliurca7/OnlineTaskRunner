@@ -30,7 +30,7 @@
         class="table-row"
         v-for="(lab, index) in getLabs($route.params.name)"
         :key="index"
-        @click="openLab($route.params.name + ':' + lab.name)"
+        @click="openWorkpace(lab)"
       >
         <td>{{ $route.params.name }}</td>
         <td>{{ lab.name }}</td>
@@ -61,7 +61,7 @@
         class="table-row"
         v-for="(homework, index) in getHomeworks($route.params.name)"
         :key="index"
-        @click="openHomework($route.params.name + ':' + homework.name)"
+        @click="openWorkpace(homework)"
       >
         <td>{{ $route.params.name }}</td>
         <td>{{ homework.name }}</td>
@@ -120,11 +120,17 @@ import { mapGetters } from "vuex";
 export default {
   name: "SubjectTable",
   methods: {
-    openLab(name) {
-      this.$router.push("/lab/" + name);
-    },
-    openHomework(name) {
-      this.$router.push("/homework/" + name);
+    openWorkpace(assignment) {
+      this.$router.push(
+        [
+          "/workspace",
+          assignment.course,
+          assignment.series,
+          assignment.year,
+          assignment.name,
+          this.getUsername
+        ].join("/")
+      );
     }
   },
   data() {
@@ -133,7 +139,7 @@ export default {
     };
   },
   computed: {
-    ...mapGetters(["getLabs", "getHomeworks", "getResults"])
+    ...mapGetters(["getUsername", "getLabs", "getHomeworks", "getResults"])
   },
   watch: {
     $route() {

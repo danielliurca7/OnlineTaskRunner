@@ -3,20 +3,24 @@ import App from "./App.vue";
 import router from "./router";
 import store from "./store";
 import BootstrapVue from "bootstrap-vue";
-import VueCookie from "vue-cookie";
 import BootstrapVueTreeview from "bootstrap-vue-treeview";
 import axios from "axios";
 import VueAxios from "vue-axios";
-import VueCryptojs from "vue-cryptojs";
+import VueSocketio from "vue-socket.io-extended";
+import io from "socket.io-client";
 
 import "bootstrap/dist/css/bootstrap.css";
 import "bootstrap-vue/dist/bootstrap-vue.css";
 
 Vue.use(BootstrapVue);
-Vue.use(VueCookie);
 Vue.use(BootstrapVueTreeview);
 Vue.use(VueAxios, axios);
-Vue.use(VueCryptojs);
+Vue.use(
+  VueSocketio,
+  io("ws://localhost:3000", {
+    transports: ["websocket"]
+  })
+);
 
 Vue.config.productionTip = false;
 
