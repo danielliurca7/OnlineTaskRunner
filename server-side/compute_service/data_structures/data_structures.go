@@ -44,6 +44,12 @@ type BuildBody struct {
 	Workspace Workspace `json:"workspace"`
 }
 
+// ExecBody is the body structure for exec requests
+type ExecBody struct {
+	Command   string    `json:"command"`
+	Workspace Workspace `json:"workspace"`
+}
+
 // File struct contains the path to the file, the data, and whether or not the file is a folder
 // It is used for transmitting files
 type File struct {

@@ -10,12 +10,12 @@ db.student.insert({
                 {
                     name: "Laborator 1",
                     total: 0.25,
-                    deadline: "05-19-2020",
+                    deadline: "07-19-2020",
                 },
                 {
                     name: "Laborator 2",
                     total: 0.25,
-                    deadline: "05-26-2020",
+                    deadline: "07-26-2020",
                 }
             ],
             homeworks: []
@@ -35,19 +35,19 @@ db.student.insert({
                 {
                     name: "Laborator 1",
                     total: 0.25,
-                    deadline: "05-19-2020",
+                    deadline: "07-19-2020",
                 },
                 {
                     name: "Laborator 2",
                     total: 0.25,
-                    deadline: "05-26-2020",
+                    deadline: "07-26-2020",
                 }
             ],
             homeworks: [
                 {
                     name: "Tema 1",
                     total: 1,
-                    deadline: "05-30-2020",
+                    deadline: "07-30-2020",
                 }
             ]
         },

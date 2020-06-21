@@ -6,6 +6,9 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	compute "./callbacks/compute"
 	database "./callbacks/database"
 	files "./callbacks/files"
@@ -19,7 +22,12 @@ func main() {
 
 	r := mux.NewRouter()
 
-	r.Handle("/socket.io/", utils.NewChangeServer())
+	r.Handle("/socket.io/", utils.SocketServer)
+
+	r.Handle("/metrics", promhttp.Handler())
+	prometheus.MustRegister(compute.ResponseTime)
+	prometheus.MustRegister(database.ResponseTime)
+	prometheus.MustRegister(files.ResponseTime)
 
 	r.HandleFunc("/api/authenticate", database.Authenticate).Methods("POST")
 	r.HandleFunc("/api/student/{name:.*}", database.GetStudentCourses).Methods("GET")
@@ -35,6 +43,7 @@ func main() {
 	r.HandleFunc("/api/build", compute.BuildImage).Methods("POST")
 	r.HandleFunc("/api/run", compute.RunContainer).Methods("POST")
 	r.HandleFunc("/api/stop", compute.StopContainer).Methods("POST")
+	r.HandleFunc("/api/exec", compute.ExecContainer).Methods("POST")
 
 	log.Fatal(http.ListenAndServe(":3000", r))
 }

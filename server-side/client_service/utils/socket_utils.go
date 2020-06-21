@@ -11,11 +11,13 @@ import (
 	datastructures "../data_structures"
 )
 
-// NewChangeServer creates a socket server for async file change transactions with the client
-func NewChangeServer() *gosocketio.Server {
-	server := gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
+var SocketServer *gosocketio.Server
 
-	server.On("subscribe", func(c *gosocketio.Channel, body datastructures.SubscribeBody) {
+// NewChangeServer creates a socket server for async file change transactions with the client
+func init() {
+	SocketServer = gosocketio.NewServer(transport.GetDefaultWebsocketTransport())
+
+	SocketServer.On("subscribe", func(c *gosocketio.Channel, body datastructures.SubscribeBody) {
 		var userdata datastructures.UserData
 		var err error
 
@@ -30,14 +32,15 @@ func NewChangeServer() *gosocketio.Server {
 			c.Close()
 			return
 		}
+
 		c.Join(body.Workspace.ToString())
 	})
 
-	server.On("unsubscribe", func(c *gosocketio.Channel, ws datastructures.Workspace) {
+	SocketServer.On("unsubscribe", func(c *gosocketio.Channel, ws datastructures.Workspace) {
 		c.Leave(ws.ToString())
 	})
 
-	server.On("change", func(c *gosocketio.Channel, body datastructures.ChangeBody) {
+	SocketServer.On("change", func(c *gosocketio.Channel, body datastructures.ChangeBody) {
 		var userdata datastructures.UserData
 		var err error
 
@@ -99,17 +102,5 @@ func NewChangeServer() *gosocketio.Server {
 			log.Println(err)
 			return
 		}
-
-		c.BroadcastTo(body.Update.Workspace.ToString(), "change",
-			struct {
-				Sender string                    `json:"sender"`
-				Update datastructures.UpdateBody `json:"update"`
-			}{
-				Sender: body.Sender,
-				Update: body.Update,
-			},
-		)
 	})
-
-	return server
 }

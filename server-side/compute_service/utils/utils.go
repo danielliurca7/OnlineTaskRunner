@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	datastructures "../data_structures"
 )
@@ -59,7 +60,9 @@ func GetConfigFiles(body []byte) ([]datastructures.File, error) {
 func RunCommand(directory string, args ...string) ([]byte, []byte, error) {
 	var o, e bytes.Buffer
 
-	cmd := exec.Command(args[0], args[1:]...)
+	last := len(args) - 1
+
+	cmd := exec.Command(args[0], append(args[1:last], strings.Fields(args[last])...)...)
 	cmd.Stdout = &o
 	cmd.Stderr = &e
 	cmd.Dir = directory

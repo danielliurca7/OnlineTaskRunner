@@ -2,14 +2,16 @@ version: '3.3'
 
 services:
   client:
-    build:
-      context: ./client_service
+    build: ./client_service
     ports:
       - 3000:3000
     networks:
       - files
       - database
       - compute
+      - monitoring
+    depends_on:
+      - rabbitmq
     environment:
       SECRET_KEY: key
     restart: always
@@ -86,6 +88,27 @@ services:
       MONGO_INITDB_DATABASE: otr_data
     restart: always
 
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./db_init/prometheus/:/etc/prometheus/
+    ports:
+      - 9090:9090
+    networks:
+      - monitoring
+    restart: always
+
+  grafana:
+    image: "grafana/grafana"
+    ports:
+      - "80:3000"
+    networks:
+      - monitoring
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    restart: always
+
 volumes:
   user_data : {}
   otr_data  : {}
@@ -95,3 +118,4 @@ networks:
   database      : {}
   compute       : {}
   files_compute : {}
+  monitoring    : {}

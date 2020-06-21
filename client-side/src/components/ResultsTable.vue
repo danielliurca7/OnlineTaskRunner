@@ -16,7 +16,7 @@
         v-for="(result, index) in getAllResults"
         :key="index"
       >
-        <td>{{ result.subjectName }}</td>
+        <td>{{ result.course }}</td>
         <td>{{ result.name }}</td>
         <td>{{ result.result }}</td>
         <td>{{ (result.result * result.total) / 100 }}</td>

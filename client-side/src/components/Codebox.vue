@@ -9,6 +9,14 @@
       @cursorActivity="onCursorActivity"
     >
     </codemirror>
+    <VueTerminal
+      :intro="intro"
+      console-sign="$"
+      allow-arbitrary
+      height="500px"
+      @command="onCliCommand"
+    >
+    </VueTerminal>
   </div>
 </template>
 
@@ -23,10 +31,13 @@ import "codemirror/lib/codemirror.css";
 import "codemirror/mode/clike/clike.js";
 import "codemirror/theme/base16-dark.css";
 
+import { VueTerminal } from "vue-terminal-ui";
+
 export default {
   name: "Codebox",
   components: {
-    codemirror
+    codemirror,
+    VueTerminal
   },
   props: ["path", "height"],
   watch: {
@@ -75,7 +86,8 @@ export default {
         ch: 0
       },
       received: false,
-      code_loaded: false
+      code_loaded: false,
+      intro: "Use 'help' or 'commands' to see available commands."
     };
   },
   computed: {
@@ -103,7 +115,7 @@ export default {
     this.codemirror.setSize("100%", this.height + "px");
 
     this.$options.sockets.change = change => {
-      let ch = change.update;
+      let ch = change;
 
       if (change.sender != this.getUsername) {
         var sameFile =
@@ -305,8 +317,8 @@ export default {
 
       this.$socket.emit("change", {
         token: this.getToken,
-        sender: this.getUsername,
         update: {
+          sender: this.getUsername,
           workspace: {
             owner: this.$route.params.owner,
             course: this.$route.params.course,
@@ -333,6 +345,90 @@ export default {
       } else {
         this.codemirror.doc.setCursor(this.cursor_pos);
         this.received = false;
+      }
+    },
+    onCliCommand(data, resolve, reject) {
+      console.log(data);
+
+      if (data.text === "commands") {
+        resolve(
+          "build; run; stop; any other Linux command to run it inside the container"
+        );
+      } else if (data.text === "build") {
+        axios
+          .post(
+            "http://localhost:3000/api/build",
+            {
+              owner: "",
+              course: this.$route.params.course,
+              assignmentname: this.$route.params.assignmentname,
+              year: parseInt(this.$route.params.year),
+              series: this.$route.params.series,
+              folder: ["config"]
+            },
+            {
+              headers: { Authorization: this.getToken }
+            }
+          )
+          .then(response => console.log(response.data))
+          .catch(error => reject(error.message));
+      } else if (data.text === "run") {
+        axios
+          .post(
+            "http://localhost:3000/api/run",
+            {
+              owner: this.$route.params.owner,
+              course: this.$route.params.course,
+              assignmentname: this.$route.params.assignmentname,
+              year: parseInt(this.$route.params.year),
+              series: this.$route.params.series,
+              folder: []
+            },
+            {
+              headers: { Authorization: this.getToken }
+            }
+          )
+          .then(response => resolve(response.data))
+          .catch(error => reject(error.message));
+      } else if (data.text === "stop") {
+        axios
+          .post(
+            "http://localhost:3000/api/stop",
+            {
+              owner: this.$route.params.owner,
+              course: this.$route.params.course,
+              assignmentname: this.$route.params.assignmentname,
+              year: parseInt(this.$route.params.year),
+              series: this.$route.params.series,
+              folder: []
+            },
+            {
+              headers: { Authorization: this.getToken }
+            }
+          )
+          .then(response => resolve(response.data))
+          .catch(error => reject(error.message));
+      } else {
+        axios
+          .post(
+            "http://localhost:3000/api/exec",
+            {
+              command: data.text,
+              workspace: {
+                owner: this.$route.params.owner,
+                course: this.$route.params.course,
+                assignmentname: this.$route.params.assignmentname,
+                year: parseInt(this.$route.params.year),
+                series: this.$route.params.series,
+                folder: []
+              }
+            },
+            {
+              headers: { Authorization: this.getToken }
+            }
+          )
+          .then(response => resolve(response.data))
+          .catch(error => reject(error.message));
       }
     }
   }

@@ -6,16 +6,28 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/streadway/amqp"
 
 	datastructures "../../data_structures"
 	"../../utils"
 )
 
+// ResponseTime is the metric that we are monitoring
+var ResponseTime = prometheus.NewHistogram(
+	prometheus.HistogramOpts{
+		Namespace: "response_time",
+		Name:      "files_service",
+		Help:      "Histogram for the response time for the files service in miliseconds",
+	})
+
 // GetFiles verifies the the validity of the token and the request body
 // If token is valid, redirects the request to files service
 func GetFiles(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
@@ -43,6 +55,8 @@ func GetFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println(string(body))
+
 	data, status, err := utils.MakeRequest("GET", "http://files:4000/api/files", body)
 	if err != nil {
 		log.Println(err)
@@ -50,11 +64,16 @@ func GetFiles(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(status)
 	w.Write(data)
+
+	elapsed := float64(time.Now().Sub(start)) / float64(time.Millisecond)
+	ResponseTime.Observe(elapsed)
 }
 
 // CommitFiles verifies the the validity of the token and the request body
 // If token is valid, redirects the request to files service
 func CommitFiles(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
@@ -89,11 +108,16 @@ func CommitFiles(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(status)
 	w.Write(data)
+
+	elapsed := float64(time.Now().Sub(start)) / float64(time.Millisecond)
+	ResponseTime.Observe(elapsed)
 }
 
 // CreateFile verifies the the validity of the token and the request body
 // If token is valid, redirects the request to files service
 func CreateFile(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
@@ -128,11 +152,16 @@ func CreateFile(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(status)
 	w.Write(data)
+
+	elapsed := float64(time.Now().Sub(start)) / float64(time.Millisecond)
+	ResponseTime.Observe(elapsed)
 }
 
 // DeleteFile verifies the the validity of the token and the request body
 // If token is valid, redirects the request to files service
 func DeleteFile(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
@@ -167,11 +196,16 @@ func DeleteFile(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(status)
 	w.Write(data)
+
+	elapsed := float64(time.Now().Sub(start)) / float64(time.Millisecond)
+	ResponseTime.Observe(elapsed)
 }
 
 // RenameFile verifies the the validity of the token and the request body
 // If token is valid, redirects the request to files service
 func RenameFile(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		log.Println(err)
@@ -206,6 +240,9 @@ func RenameFile(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(status)
 	w.Write(data)
+
+	elapsed := float64(time.Now().Sub(start)) / float64(time.Millisecond)
+	ResponseTime.Observe(elapsed)
 }
 
 // ListenForUpdates listens to a RabbitMQ broker for updates for files
@@ -287,6 +324,8 @@ func ListenForUpdates() {
 		if err := json.Unmarshal(msg.Body, &body); err != nil {
 			log.Println(err)
 		}
+
+		utils.SocketServer.BroadcastTo(body.Workspace.ToString(), "change", body)
 
 		log.Println(
 			"Update request for",

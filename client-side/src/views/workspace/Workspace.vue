@@ -33,7 +33,7 @@ export default {
       this.current_path = path;
     },
     resize() {
-      this.height = window.innerHeight - this.$refs.navbar.clientHeight;
+      this.height = window.innerHeight - this.$refs.navbar.clientHeight - 86;
     }
   },
   mounted() {

@@ -25,6 +25,7 @@
     "vue-sidebar-menu": "^4.5.3",
     "vue-socket.io": "^3.0.7",
     "vue-socket.io-extended": "^3.2.2",
+    "vue-terminal-ui": "^0.1.6",
     "vuex": "^3.3.0"
   },
   "devDependencies": {

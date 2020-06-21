@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -13,12 +14,15 @@ import (
 )
 
 var redisClient *redis.Client
+var ctx context.Context
 
 func init() {
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:     "redis:6379",
 		Password: "",
 	})
+
+	ctx = redisClient.Context()
 }
 
 // GetFilesFromDisk returns the files for a workspace from the disk
@@ -64,7 +68,7 @@ func GetFilesFromDisk(ws datastructures.Workspace) ([]datastructures.File, error
 // CommitFilesToDisk copies to disk all the files for a workspace
 // If a file is marked as deleted , then delete it
 func CommitFilesToDisk(ws datastructures.Workspace) error {
-	res, err := redisClient.HGetAll(ws.ToString()).Result()
+	res, err := redisClient.HGetAll(ctx, ws.ToString()).Result()
 
 	if err != nil {
 		return err
@@ -101,7 +105,7 @@ func CommitFilesToDisk(ws datastructures.Workspace) error {
 
 // IsWorkspaceInCache verifies if files of an workspace are in cache
 func IsWorkspaceInCache(ws datastructures.Workspace) (bool, error) {
-	exists, err := redisClient.Exists(ws.ToString()).Result()
+	exists, err := redisClient.Exists(ctx, ws.ToString()).Result()
 
 	if err != nil {
 		return false, err
@@ -115,10 +119,10 @@ func IsFileInCache(ws datastructures.Workspace, path []string) (bool, error) {
 	var exists bool
 	var cacheEntry datastructures.CacheEntry
 
-	if exists, err := redisClient.HExists(ws.ToString(), filepath.Join(path...)).Result(); err != nil {
+	if exists, err := redisClient.HExists(ctx, ws.ToString(), filepath.Join(path...)).Result(); err != nil {
 		return false, err
 	} else if exists {
-		if entry, err := redisClient.HGet(ws.ToString(), filepath.Join(path...)).Result(); err != nil {
+		if entry, err := redisClient.HGet(ctx, ws.ToString(), filepath.Join(path...)).Result(); err != nil {
 			return false, err
 		} else if err = json.Unmarshal([]byte(entry), &cacheEntry); err != nil {
 			return false, err
@@ -140,7 +144,7 @@ func GetFilesToCache(ws datastructures.Workspace, files []datastructures.File) e
 			Deleted: false,
 		})
 
-		if err := redisClient.HSet(ws.ToString(), filepath.Join(file.Path...), b).Err(); err != nil {
+		if err := redisClient.HSet(ctx, ws.ToString(), filepath.Join(file.Path...), b).Err(); err != nil {
 			ClearFilesFromCache(ws)
 			return err
 		}
@@ -162,7 +166,7 @@ func GetWorkspaceToCache(ws datastructures.Workspace) error {
 
 // GetFilesFromCache returns the files for a workspace from the cache
 func GetFilesFromCache(ws datastructures.Workspace) ([]datastructures.File, error) {
-	res, err := redisClient.HGetAll(ws.ToString()).Result()
+	res, err := redisClient.HGetAll(ctx, ws.ToString()).Result()
 
 	if err != nil {
 		return nil, err
@@ -192,7 +196,7 @@ func GetFilesFromCache(ws datastructures.Workspace) ([]datastructures.File, erro
 
 // ClearFilesFromCache deletes all the files coresponding to a workspace from cache
 func ClearFilesFromCache(ws datastructures.Workspace) error {
-	return redisClient.Del(ws.ToString()).Err()
+	return redisClient.Del(ctx, ws.ToString()).Err()
 }
 
 // CreateFile creates a new file in a workspace in cache
@@ -215,7 +219,7 @@ func CreateFile(ws datastructures.Workspace, file datastructures.File) error {
 		Deleted: false,
 	})
 
-	return redisClient.HSet(ws.ToString(), filepath.Join(file.Path...), b).Err()
+	return redisClient.HSet(ctx, ws.ToString(), filepath.Join(file.Path...), b).Err()
 }
 
 // DeleteFile marks deleted a file from a workspace in cache
@@ -233,7 +237,7 @@ func DeleteFile(ws datastructures.Workspace, path []string) error {
 		return errors.New("File does not exist")
 	}
 
-	res, err := redisClient.HGetAll(ws.ToString()).Result()
+	res, err := redisClient.HGetAll(ctx, ws.ToString()).Result()
 
 	if err != nil {
 		return err
@@ -244,7 +248,7 @@ func DeleteFile(ws datastructures.Workspace, path []string) error {
 
 	for name := range res {
 		if strings.Contains(name, pathName) {
-			if err = redisClient.HSet(ws.ToString(), filepath.Join(path...), b).Err(); err != nil {
+			if err = redisClient.HSet(ctx, ws.ToString(), filepath.Join(path...), b).Err(); err != nil {
 				return err
 			}
 		}
@@ -267,7 +271,7 @@ func RenameFile(ws datastructures.Workspace, path []string, newName string) erro
 		// return errors.New("File not in cache")
 	}
 
-	res, err := redisClient.HGet(ws.ToString(), filepath.Join(path...)).Result()
+	res, err := redisClient.HGet(ctx, ws.ToString(), filepath.Join(path...)).Result()
 
 	if err != nil {
 		return err
@@ -275,7 +279,7 @@ func RenameFile(ws datastructures.Workspace, path []string, newName string) erro
 
 	newPath := append(append([]string(nil), path...)[:len(path)-1], newName)
 
-	if err = redisClient.HSet(ws.ToString(), filepath.Join(newPath...), res).Err(); err != nil {
+	if err = redisClient.HSet(ctx, ws.ToString(), filepath.Join(newPath...), res).Err(); err != nil {
 		return err
 	}
 
@@ -296,7 +300,7 @@ func UpdateFile(ws datastructures.Workspace, path []string, change datastructure
 		return errors.New("File does not exist")
 	}
 
-	res, err := redisClient.HGet(ws.ToString(), filepath.Join(path...)).Result()
+	res, err := redisClient.HGet(ctx, ws.ToString(), filepath.Join(path...)).Result()
 
 	if err != nil {
 		return err
@@ -329,5 +333,5 @@ func UpdateFile(ws datastructures.Workspace, path []string, change datastructure
 
 	b, _ := json.Marshal(cacheEntry)
 
-	return redisClient.HSet(ws.ToString(), filepath.Join(path...), b).Err()
+	return redisClient.HSet(ctx, ws.ToString(), filepath.Join(path...), b).Err()
 }

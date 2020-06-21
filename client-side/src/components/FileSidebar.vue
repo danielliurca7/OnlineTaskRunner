@@ -3,18 +3,6 @@
     class="file-sidebar"
     v-if="this.treeData !== [] && this.treeData.length > 0"
   >
-    <b-button-toolbar
-      key-nav
-      aria-label="Toolbar with button groups"
-      class="d-flex justify-content-end"
-    >
-      <b-button-group class="m-2">
-        <b-button @click="build">Build</b-button>
-        <b-button @click="stop">Stop</b-button>
-        <b-button @click="run">Run</b-button>
-      </b-button-group>
-    </b-button-toolbar>
-
     <b-tree-view
       class="float-left"
       :data="treeData"
@@ -99,60 +87,6 @@ export default {
         .filter(file => file.path.length === 1)
         .map(get_filetree_data);
     },
-    build: function() {
-      axios
-        .post(
-          "http://localhost:3000/api/build",
-          {
-            owner: "",
-            course: this.$route.params.course,
-            assignmentname: this.$route.params.assignmentname,
-            year: parseInt(this.$route.params.year),
-            series: this.$route.params.series,
-            folder: ["config"]
-          },
-          {
-            headers: { Authorization: this.getToken }
-          }
-        )
-        .then(response => console.log(response.data));
-    },
-    run: function() {
-      axios
-        .post(
-          "http://localhost:3000/api/run",
-          {
-            owner: this.$route.params.owner,
-            course: this.$route.params.course,
-            assignmentname: this.$route.params.assignmentname,
-            year: parseInt(this.$route.params.year),
-            series: this.$route.params.series,
-            folder: []
-          },
-          {
-            headers: { Authorization: this.getToken }
-          }
-        )
-        .then(response => console.log(response.data));
-    },
-    stop: function() {
-      axios
-        .post(
-          "http://localhost:3000/api/stop",
-          {
-            owner: this.$route.params.owner,
-            course: this.$route.params.course,
-            assignmentname: this.$route.params.assignmentname,
-            year: parseInt(this.$route.params.year),
-            series: this.$route.params.series,
-            folder: []
-          },
-          {
-            headers: { Authorization: this.getToken }
-          }
-        )
-        .then(response => console.log(response.data));
-    },
     select: function(object, isSelected) {
       if (object.data.isDir) {
         if (isSelected) {
@@ -166,41 +100,14 @@ export default {
       }
     },
     contextMenu: function(itemObject, object) {
+      console.log(object.data);
+
       switch (itemObject.code) {
         case "NEW_FILE":
           break;
         case "NEW_FOLDER":
           break;
         case "DELETE":
-          axios
-            .post("http://localhost:8000/api/delete", {
-              owner: this.getUsername,
-              subject: "APD",
-              assignmentname: "Tema de smecherie",
-              year: 2019,
-              path: object.data.path
-            })
-            .then(response => {
-              if (response.status === 200) {
-                axios
-                  .post("http://localhost:8000/api/filetree", {
-                    owner: this.getUsername,
-                    subject: "APD",
-                    assignmentname: "Tema de smecherie",
-                    year: 2019
-                  })
-                  .then(response => {
-                    this.treeData = response.data;
-                  })
-                  .catch(error => {
-                    console.log(error);
-                  });
-              }
-            })
-            .catch(error => {
-              console.log(error);
-            });
-
           break;
       }
     }

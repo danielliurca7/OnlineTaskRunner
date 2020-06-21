@@ -72,7 +72,6 @@ func BuildImage(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Write([]byte("Build successful"))
 	}
-
 }
 
 // RunContainer is the callback for a run request
@@ -188,5 +187,46 @@ func StopContainer(w http.ResponseWriter, r *http.Request) {
 	} else if len(cmdErr) != 0 {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(append([]byte("Stop failed\n"), cmdErr...))
+	}
+}
+
+// ExecContainer is the callback for a stop request
+// It executes a docker exec command
+func ExecContainer(w http.ResponseWriter, r *http.Request) {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Could not read request body"))
+		return
+	}
+
+	var execBody datastructures.ExecBody
+
+	if err := json.Unmarshal(body, &execBody); err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Could not read request body"))
+		return
+	}
+
+	h := sha1.New()
+	h.Write([]byte(execBody.Workspace.ToString()))
+	instanceName := string(hex.EncodeToString(h.Sum(nil)))
+
+	out, cmdErr, err := utils.RunCommand(
+		execBody.Workspace.ToString(),
+		"docker", "exec", instanceName, execBody.Command,
+	)
+
+	if err != nil {
+		log.Println("Exec failed with", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Exec failed"))
+	} else if len(cmdErr) != 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write(append([]byte("Exec failed\n"), cmdErr...))
+	} else {
+		w.Write(out)
 	}
 }

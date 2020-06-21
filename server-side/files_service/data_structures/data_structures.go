@@ -68,6 +68,7 @@ type RenameBody struct {
 
 // UpdateBody is the format for the update request body
 type UpdateBody struct {
+	Sender    string    `json:"sender"`
 	Workspace Workspace `json:"workspace"`
 	Path      []string  `json:"path"`
 	Change    Change    `json:"change"`
